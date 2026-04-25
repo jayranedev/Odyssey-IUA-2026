@@ -13,10 +13,22 @@
       "**/*"
     ],
     "android": {
-      "package": "com.jugaadgpt.mobile"
+      "package": "com.jugaadgpt.mobile",
+      "permissions": [
+        "CAMERA"
+      ]
     },
     "ios": {
       "supportsTablet": false
-    }
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Jugaad Workshop to use your photos for scrap scanning.",
+          "cameraPermission": "Allow Jugaad Workshop to use your camera for scrap scanning."
+        }
+      ]
+    ]
   }
 }

@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import {
+  Alert,
+  Image,
   Platform,
   Pressable,
   SafeAreaView,
@@ -11,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 
 const palette = {
   paper: '#F2EDE2',
@@ -43,6 +46,8 @@ const scraps = [
 ];
 
 const gridLines = Array.from({ length: 20 }, (_, index) => index);
+const defaultScannerImage =
+  'https://lh3.googleusercontent.com/aida-public/AB6AXuDAmKED5mqquku6Up5tE3HA3ge0yEC1CL9RqRb1_1AyHVjXRjEenY5m2wZDxW-afyaOfPnSZTlUz3Vq6oMWFBC84UN0DVvo9Ihdmhh6v-7706Ft4Xkmv6TaZ_0IHpfCL6dKqUPe1QYteiq3eZCeStFQ4Gxtf7GGPWYBGNkfq38YP4TLjq-4L23JBu2c3sell55DYUuWGU2DH8j1XmQGsIUDZKWrz2QiVKgXG0JcUj-qI-7A3_8qP9Eb5W0RCyVZNoqk0NOBg04_4F0';
 
 function Ico({ name, size = 20, color = palette.ink }) {
   return <MaterialCommunityIcons name={name} size={size} color={color} />;
@@ -118,6 +123,40 @@ function GridPaper() {
 
 export default function JugaadMobileApp() {
   const [budget, setBudget] = useState(500);
+  const [scannedImage, setScannedImage] = useState(null);
+
+  const openCamera = async () => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+
+    if (!permission.granted) {
+      Alert.alert('Camera permission needed', 'Allow camera access to click a scrap photo.');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets?.[0]?.uri) {
+      setScannedImage(result.assets[0].uri);
+    }
+  };
+
+  const openGallery = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets?.[0]?.uri) {
+      setScannedImage(result.assets[0].uri);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -168,14 +207,27 @@ export default function JugaadMobileApp() {
                 <Text style={styles.scannerBadgeText}>SCANNER ACTIVE</Text>
               </View>
 
-              <View style={styles.scannerImageArea}>
-                <View style={styles.scannerTexture} />
-                <View style={styles.scannerBlueprintPaper}>
-                  <Text style={styles.blueprintScribble}>machine sketch</Text>
-                </View>
+              <Pressable style={styles.scannerImageArea} onPress={openCamera}>
+                <Image
+                  source={{ uri: scannedImage || defaultScannerImage }}
+                  style={styles.scannedPhoto}
+                  resizeMode="cover"
+                />
+
                 <View style={styles.cameraBadge}>
-                  <Ico name="aperture" size={28} color={palette.paper} />
+                  <Ico name="camera-outline" size={28} color={palette.paper} />
                 </View>
+              </Pressable>
+
+              <View style={styles.scannerActions}>
+                <Pressable style={styles.scannerActionButton} onPress={openCamera}>
+                  <Ico name="camera" size={16} color={palette.card} />
+                  <Text style={styles.scannerActionText}>TAKE PHOTO</Text>
+                </Pressable>
+                <Pressable style={[styles.scannerActionButton, styles.scannerActionGhost]} onPress={openGallery}>
+                  <Ico name="image-outline" size={16} color={palette.ink} />
+                  <Text style={[styles.scannerActionText, styles.scannerActionGhostText]}>USE GALLERY</Text>
+                </Pressable>
               </View>
             </BlueprintFrame>
 
@@ -184,9 +236,6 @@ export default function JugaadMobileApp() {
                 <Text style={styles.sectionNumber}>02.</Text>
                 <Text style={styles.sectionTitle}>SCRAP INVENTORY</Text>
               </View>
-              <Pressable style={styles.scanButton}>
-                <Text style={styles.scanButtonText}>SCAN ITEM +</Text>
-              </Pressable>
             </View>
 
             {scraps.map((scrap) => (
@@ -439,29 +488,10 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
   },
-  scannerTexture: {
+  scannedPhoto: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#626262',
-    opacity: 0.95,
-  },
-  scannerBlueprintPaper: {
-    position: 'absolute',
-    left: 78,
-    right: 74,
-    bottom: 28,
-    height: 56,
-    backgroundColor: '#E2DED2',
-    borderWidth: 1,
-    borderColor: '#A0A0A0',
-    alignItems: 'center',
-    justifyContent: 'center',
-    transform: [{ rotate: '-8deg' }],
-  },
-  blueprintScribble: {
-    color: '#64708A',
-    fontSize: 16,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+    width: '100%',
+    height: '100%',
   },
   cameraBadge: {
     position: 'absolute',
@@ -475,26 +505,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  scannerActions: {
+    marginTop: 12,
+    flexDirection: 'row',
+    gap: 10,
+  },
+  scannerActionButton: {
+    flex: 1,
+    minHeight: 42,
+    backgroundColor: palette.ink,
+    borderWidth: 2,
+    borderColor: palette.ink,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  scannerActionGhost: {
+    backgroundColor: palette.card,
+  },
+  scannerActionText: {
+    color: palette.card,
+    fontSize: 13,
+    lineHeight: 15,
+    fontWeight: '900',
+    letterSpacing: 0.6,
+  },
+  scannerActionGhostText: {
+    color: palette.ink,
+  },
   scrapHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     marginBottom: 12,
     marginTop: 8,
-  },
-  scanButton: {
-    backgroundColor: palette.ink,
-    paddingHorizontal: 18,
-    paddingVertical: 13,
-    borderWidth: 2,
-    borderColor: '#082048',
-  },
-  scanButtonText: {
-    color: palette.white,
-    fontSize: 16,
-    lineHeight: 18,
-    fontWeight: '900',
-    letterSpacing: 0.5,
   },
   scrapCard: {
     backgroundColor: palette.card,
