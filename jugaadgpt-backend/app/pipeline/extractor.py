@@ -82,4 +82,12 @@ async def extract_constraints(message: str, image_base64: str | None = None) -> 
     for field in ("problem_type", "specific_issue", "location_state", "season", "climate"):
         if data.get(field) is None:
             data[field] = ""
+    if data.get("power_availability") is None:
+        data["power_availability"] = "unknown"
+    if data.get("skill_level") is None:
+        data["skill_level"] = "basic"
+    if data.get("available_materials") is None:
+        data["available_materials"] = []
+    if data.get("missing_constraints") is None:
+        data["missing_constraints"] = []
     return Constraints(**data)
