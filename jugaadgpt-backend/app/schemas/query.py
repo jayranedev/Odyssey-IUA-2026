@@ -6,6 +6,7 @@ class QueryRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=2000)
     image_base64: str | None = None  # for photo-of-materials feature
     channel: str = "web"  # web | whatsapp
+    lang: str = "hinglish"  # hinglish | english | hindi
     # Auto-filled by frontend from browser geolocation + reverse geocode
     location_state: str | None = None  # e.g. "Maharashtra"
     latitude: float | None = None

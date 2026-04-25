@@ -1,5 +1,10 @@
+import { Suspense } from 'react';
 import { ChatScreen } from '@/components/ChatScreen';
 
 export default function Chat() {
-  return <ChatScreen />;
+  return (
+    <Suspense>
+      <ChatScreen />
+    </Suspense>
+  );
 }

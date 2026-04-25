@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>JUGAAD GPT | The Workshop</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-background": "#1b1c19",
+                        "inverse-surface": "#30312e",
+                        "on-primary": "#ffffff",
+                        "on-error-container": "#93000a",
+                        "inverse-primary": "#a6c8ff",
+                        "surface": "#fbf9f4",
+                        "secondary-fixed": "#ffdbc9",
+                        "primary-fixed": "#d5e3ff",
+                        "surface-container-low": "#f5f3ee",
+                        "on-tertiary-fixed": "#221b00",
+                        "surface-container": "#f0eee9",
+                        "tertiary": "#705d00",
+                        "outline": "#737781",
+                        "primary": "#003466",
+                        "on-secondary-fixed": "#321200",
+                        "on-primary-fixed": "#001c3b",
+                        "on-secondary-container": "#783603",
+                        "on-error": "#ffffff",
+                        "primary-fixed-dim": "#a6c8ff",
+                        "secondary-fixed-dim": "#ffb68c",
+                        "surface-dim": "#dbdad5",
+                        "surface-container-high": "#eae8e3",
+                        "error-container": "#ffdad6",
+                        "on-surface": "#1b1c19",
+                        "surface-bright": "#fbf9f4",
+                        "surface-container-highest": "#e4e2dd",
+                        "primary-container": "#1a4b84",
+                        "surface-tint": "#335f99",
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary-container": "#4c3e00",
+                        "on-primary-container": "#93bcfc",
+                        "on-tertiary-fixed-variant": "#544600",
+                        "inverse-on-surface": "#f2f1ec",
+                        "on-secondary-fixed-variant": "#753401",
+                        "on-surface-variant": "#424750",
+                        "tertiary-container": "#c9a900",
+                        "error": "#ba1a1a",
+                        "background": "#fbf9f4",
+                        "outline-variant": "#c3c6d1",
+                        "tertiary-fixed": "#ffe16d",
+                        "on-secondary": "#ffffff",
+                        "surface-variant": "#e4e2dd",
+                        "on-tertiary": "#ffffff",
+                        "secondary": "#934b19",
+                        "on-primary-fixed-variant": "#144780",
+                        "tertiary-fixed-dim": "#e9c400",
+                        "secondary-container": "#ffa26a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0px",
+                        "lg": "0px",
+                        "xl": "0px",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "display": ["Inter", "sans-serif"],
+                        "data-tabular": ["Inter", "monospace"],
+                        "headline-md": ["Inter", "sans-serif"],
+                        "annotation": ["cursive"],
+                        "body-md": ["Inter", "sans-serif"],
+                        "body-lg": ["Inter", "sans-serif"],
+                        "headline-lg": ["Inter", "sans-serif"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .graph-paper {
+            background-color: #fbf9f4;
+            background-image: 
+                linear-gradient(#e5e7eb 1px, transparent 1px),
+                linear-gradient(90deg, #e5e7eb 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .duct-tape-corner {
+            position: relative;
+        }
+        .duct-tape-corner::before {
+            content: '';
+            position: absolute;
+            top: -5px;
+            left: -5px;
+            width: 30px;
+            height: 10px;
+            background: #94a3b8; /* Silver tape */
+            transform: rotate(-45deg);
+            box-shadow: 2px 2px 0 rgba(0,0,0,0.2);
+            z-index: 10;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body-md min-h-screen pb-24">
+<!-- TopAppBar -->
+<header class="flex justify-between items-center w-full px-6 py-4 bg-[#f4f1ea] dark:bg-[#1a1a1a] sticky top-0 z-50 border-b-4 border-double border-[#1A4B84] shadow-[4px_4px_0px_0px_rgba(26,75,132,1)] bg-[url('https://www.transparenttextures.com/patterns/graph-paper.png')]">
+<div class="flex items-center gap-4">
+<h1 class="text-2xl font-black text-[#1A4B84] dark:text-[#4A90E2] tracking-widest uppercase font-display">JUGAAD GPT</h1>
+</div>
+<div class="flex items-center gap-3">
+<button class="bg-[#FFD700] border-2 border-black px-4 py-2 font-display font-black text-sm tracking-tighter uppercase active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:bg-[#1A4B84] hover:text-white">
+                NEW PROJECT
+            </button>
+<button class="p-2 text-[#1A4B84] hover:bg-[#1A4B84] hover:text-white transition-colors active:translate-x-[2px] active:translate-y-[2px]">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="max-w-4xl mx-auto px-margin mt-lg graph-paper min-h-screen border-x-2 border-outline-variant shadow-inner py-10">
+<!-- Header Section -->
+<div class="mb-xl px-4">
+<h2 class="font-display text-display text-primary uppercase border-b-4 border-primary inline-block mb-xs">The Workshop</h2>
+<p class="font-annotation text-secondary text-annotation">Log your problem. Use what you have. Build what you need.</p>
+</div>
+<!-- Ledger Container -->
+<div class="space-y-gutter">
+<!-- Section: The Problem -->
+<section class="bg-white p-6 border-2 border-on-background relative duct-tape-corner shadow-[6px_6px_0px_0px_rgba(0,0,0,0.1)]">
+<div class="flex items-center gap-2 mb-md">
+<span class="material-symbols-outlined text-primary" data-icon="edit_note">edit_note</span>
+<label class="font-display text-headline-md uppercase tracking-tight">The Problem</label>
+</div>
+<div class="relative">
+<textarea class="w-full bg-surface-container-low border-b-2 border-on-background border-t-0 border-x-0 focus:ring-0 focus:border-primary p-4 font-body-lg min-h-[150px] placeholder:text-outline-variant" placeholder="What needs fixing or building? (e.g. My water pump handle broke, need a manual grain thresher...)"></textarea>
+<div class="absolute bottom-2 right-2 font-annotation text-sm text-outline opacity-50">Line no. 001</div>
+</div>
+</section>
+<!-- Grid Layout for Scraps and Budget -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-gutter">
+<!-- Section: Available Scraps (Span 2) -->
+<section class="md:col-span-2 bg-white p-6 border-2 border-on-background shadow-[6px_6px_0px_0px_rgba(0,0,0,0.1)] relative">
+<div class="flex justify-between items-center mb-md">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary" data-icon="inventory">inventory</span>
+<label class="font-display text-headline-md uppercase tracking-tight">Available Scraps</label>
+</div>
+<button class="flex items-center gap-1 bg-[#1A4B84] text-white px-3 py-1 font-display text-xs font-bold uppercase active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-sm" data-icon="photo_camera" data-weight="fill" style="font-variation-settings: 'FILL' 1;">photo_camera</span>
+                            Scan Item
+                        </button>
+</div>
+<div class="space-y-xs">
+<div class="flex items-center border-b border-dashed border-outline-variant py-2">
+<span class="font-data-tabular mr-4 text-outline">01.</span>
+<input class="bg-transparent border-none focus:ring-0 w-full font-body-md uppercase" type="text" value="Old cycle rim"/>
+<button class="text-error px-2"><span class="material-symbols-outlined text-sm" data-icon="close">close</span></button>
+</div>
+<div class="flex items-center border-b border-dashed border-outline-variant py-2">
+<span class="font-data-tabular mr-4 text-outline">02.</span>
+<input class="bg-transparent border-none focus:ring-0 w-full font-body-md uppercase" type="text" value="PVC Pipe (2 meters)"/>
+<button class="text-error px-2"><span class="material-symbols-outlined text-sm" data-icon="close">close</span></button>
+</div>
+<div class="flex items-center border-b border-dashed border-outline-variant py-2">
+<span class="font-data-tabular mr-4 text-outline">03.</span>
+<input class="bg-transparent border-none focus:ring-0 w-full font-body-md uppercase placeholder:opacity-30" placeholder="Add more scrap..." type="text"/>
+<button class="text-primary px-2"><span class="material-symbols-outlined text-sm" data-icon="add">add</span></button>
+</div>
+</div>
+<!-- Scan Visual Placeholder -->
+<div class="mt-md border-2 border-dashed border-primary-container p-4 bg-surface-container-highest flex items-center gap-4">
+<img alt="Scrap Metal" class="w-16 h-16 object-cover border-2 border-on-background" data-alt="close up of rusted iron gears and industrial scrap metal sitting on a wooden workshop table with grit and dust" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDI_EaLKLMZrpdTZrCIFyqVELja7EeG8ChKuxHFzFvf1vVT_3Ghq6pL76qKGg23gTYCua5HlmW5vf8cplRiPOBjEdHHES6PJk3D_DE16d7pH4ZZ7daasCJYYWvkHPvf0cngButFW1lAjfQoOwIES4iXNxMKxsNHDbKuocqKXTxeyP0T-wQ7V8bm1ffW-U3nKiu_ECncZDAyqokzUXtjdmpz0aeoB-0PPBX_2NrLhhTcAny7KJISaKr6hWReSOuXtH50H8ErNo5q0aM"/>
+<div>
+<p class="font-display text-sm font-bold text-primary">SCANNER ACTIVE</p>
+<p class="text-xs text-on-surface-variant font-body-md">Vintage Camera detection running...</p>
+</div>
+</div>
+</section>
+<!-- Section: Budget -->
+<section class="bg-white p-6 border-2 border-on-background shadow-[6px_6px_0px_0px_rgba(0,0,0,0.1)] flex flex-col">
+<div class="flex items-center gap-2 mb-md">
+<span class="material-symbols-outlined text-primary" data-icon="payments">payments</span>
+<label class="font-display text-headline-md uppercase tracking-tight">Budget</label>
+</div>
+<div class="flex-grow flex flex-col justify-center text-center p-4 bg-primary-fixed border-2 border-primary">
+<span class="text-xs font-display font-black text-on-primary-fixed-variant uppercase">Indian Rupees (₹)</span>
+<input class="bg-transparent border-none focus:ring-0 text-center text-display font-black text-primary p-0" type="number" value="500"/>
+<div class="h-1 bg-primary w-full mt-2"></div>
+</div>
+<p class="mt-4 font-annotation text-xs text-secondary text-center italic">"Build it cheap, build it strong."</p>
+</section>
+</div>
+<!-- Submit Action -->
+<div class="flex justify-center py-xl">
+<button class="group relative px-12 py-6 bg-[#FFD700] border-4 border-on-background shadow-[8px_8px_0px_0px_rgba(0,34,102,1)] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all">
+<div class="flex items-center gap-4">
+<span class="font-display text-headline-lg font-black uppercase tracking-widest">Generate Solution</span>
+<span class="material-symbols-outlined text-4xl" data-icon="settings_suggest" data-weight="fill" style="font-variation-settings: 'FILL' 1;">settings_suggest</span>
+</div>
+<!-- Hand-drawn Arrow Decoration -->
+<div class="absolute -left-20 top-1/2 -translate-y-1/2 hidden lg:block">
+<svg class="text-secondary rotate-12" fill="none" height="40" stroke="currentColor" viewbox="0 0 60 40" width="60">
+<path d="M5 20C20 20 40 5 55 15M55 15L45 10M55 15L50 25" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"></path>
+</svg>
+<span class="font-annotation text-sm text-secondary block -rotate-12 mt-2">Click to build!</span>
+</div>
+</button>
+</div>
+</div>
+<!-- Annotation / Footer Detail -->
+<div class="mt-xl pt-md border-t-2 border-dashed border-outline-variant flex justify-between items-end opacity-60 px-4">
+<div>
+<p class="font-data-tabular text-[10px] uppercase">Form ID: JUGAAD-2024-WKS</p>
+<p class="font-data-tabular text-[10px] uppercase">Locality: Rural Fabrication Unit 7</p>
+</div>
+<div class="text-right">
+<span class="material-symbols-outlined text-3xl" data-icon="construction">construction</span>
+</div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-end pb-4 pt-2 px-2 bg-[#f4f1ea] dark:bg-[#1a1a1a] border-t-4 border-[#1A4B84] bg-[url('https://www.transparenttextures.com/patterns/graph-paper.png')]">
+<!-- Workshop (Active) -->
+<a class="flex flex-col items-center justify-center bg-[#FFD700] text-black border-2 border-black -translate-y-2 px-4 py-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="handyman">handyman</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase">Workshop</span>
+</a>
+<!-- Blueprints -->
+<a class="flex flex-col items-center justify-center text-[#1A4B84] opacity-70 hover:bg-stone-200 dark:hover:bg-stone-800 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="architecture">architecture</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase">Blueprints</span>
+</a>
+<!-- Bazaari -->
+<a class="flex flex-col items-center justify-center text-[#1A4B84] opacity-70 hover:bg-stone-200 dark:hover:bg-stone-800 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="storefront">storefront</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase">Bazaari</span>
+</a>
+<!-- Archive -->
+<a class="flex flex-col items-center justify-center text-[#1A4B84] opacity-70 hover:bg-stone-200 dark:hover:bg-stone-800 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="inventory_2">inventory_2</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase">Archive</span>
+</a>
+</nav>
+</body></html>

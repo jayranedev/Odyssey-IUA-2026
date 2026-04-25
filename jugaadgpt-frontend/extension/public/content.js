@@ -1,38 +1,32 @@
-// Content script for rendering a floating pill (placeholder)
 console.log('JugaadGPT extension loaded in page.');
 
-function injectFloatingPill() {
-  const existing = document.getElementById('jugaadgpt-pill');
-  if (existing) return;
+function collectPageContext() {
+  const headings = Array.from(document.querySelectorAll('h1, h2, h3'))
+    .map((node) => node.textContent?.trim())
+    .filter(Boolean)
+    .slice(0, 12);
 
-  const pill = document.createElement('div');
-  pill.id = 'jugaadgpt-pill';
-  pill.style.cssText = `
-    position: fixed;
-    bottom: 24px;
-    right: 24px;
-    z-index: 999999;
-    background: #0E1B2D;
-    color: #F4C61E;
-    padding: 10px 16px;
-    border-radius: 99px;
-    font-family: system-ui, sans-serif;
-    font-size: 13px;
-    font-weight: 700;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    cursor: pointer;
-    border: 1.5px solid #F4C61E;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  `;
-  pill.innerHTML = `<span>JugaadGPT</span><span>+</span>`;
-  
-  pill.addEventListener('click', () => {
-    alert('JugaadGPT Workspace opened!');
-  });
+  const selectedText = window.getSelection?.().toString().trim() || '';
+  const metaDescription = document
+    .querySelector('meta[name="description"]')
+    ?.getAttribute('content')
+    ?.trim() || '';
 
-  document.body.appendChild(pill);
+  const bodyText = document.body?.innerText?.replace(/\s+/g, ' ').trim().slice(0, 2400) || '';
+
+  return {
+    title: document.title || '',
+    url: window.location.href,
+    selection: selectedText,
+    description: metaDescription,
+    headings,
+    bodyText,
+  };
 }
 
-// injectFloatingPill();
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type === 'JUGAADGPT_GET_PAGE_CONTEXT') {
+    sendResponse(collectPageContext());
+  }
+  return false;
+});

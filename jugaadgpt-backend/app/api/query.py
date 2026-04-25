@@ -73,7 +73,7 @@ async def query(request: QueryRequest, db: AsyncSession = Depends(get_db)):
             # Step 2: Check truly critical missing fields (never asks for optional ones)
             missing = _compute_missing(constraints)
             if missing:
-                question = _build_clarifying_question(missing)
+                question = _build_clarifying_question(missing, request.lang)
                 yield _sse("clarification", json.dumps({
                     "question": question,
                     "missing_fields": missing,
@@ -94,7 +94,7 @@ async def query(request: QueryRequest, db: AsyncSession = Depends(get_db)):
 
                     # Stream the first attempt
                     full_text = ""
-                    async for token in generate_solution_stream(constraints, cases, history):
+                    async for token in generate_solution_stream(constraints, cases, history, request.lang):
                         full_text += token
                         yield _sse("token", token)
 
@@ -229,12 +229,27 @@ async def text_to_speech(body: dict):
     return Response(content=audio_bytes, media_type="audio/mpeg")
 
 
-def _build_clarifying_question(missing_fields: list[str]) -> str:
-    field_questions = {
-        "budget_inr": "Aapka budget kitna hai? (What is your budget in rupees?)",
-        "power_availability": "Kya aapke paas bijli hai? (Do you have electricity available?)",
-        "location_state": "Aap kaunse state mein hain? (Which state are you in?)",
-        "climate": "Aapke area ka mahaul kaisa hai — garmi, sardi, ya barish? (Hot/cold/rainy climate?)",
-    }
+def _build_clarifying_question(missing_fields: list[str], lang: str = "hinglish") -> str:
+    if lang == "english":
+        field_questions = {
+            "budget_inr": "What is your budget in rupees?",
+            "power_availability": "Do you have electricity available?",
+            "location_state": "Which state in India are you in?",
+            "climate": "What is your local climate like — hot, cold, or rainy?",
+        }
+    elif lang == "hindi":
+        field_questions = {
+            "budget_inr": "आपका बजट कितना है? (रुपये में बताएं)",
+            "power_availability": "क्या आपके पास बिजली है?",
+            "location_state": "आप किस राज्य में हैं?",
+            "climate": "आपके क्षेत्र का मौसम कैसा है — गर्मी, सर्दी, या बारिश?",
+        }
+    else:  # hinglish default
+        field_questions = {
+            "budget_inr": "Aapka budget kitna hai? (rupees mein)",
+            "power_availability": "Kya aapke paas bijli hai?",
+            "location_state": "Aap kaunse state mein hain?",
+            "climate": "Aapke area ka mahaul kaisa hai — garmi, sardi, ya barish?",
+        }
     questions = [field_questions.get(f, f"Please provide: {f}") for f in missing_fields[:2]]
     return " | ".join(questions)

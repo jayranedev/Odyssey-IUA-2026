@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import archive, feedback, query, whatsapp
+from app.api import archive, feedback, query, vision, whatsapp
 from app.config import settings
 
 
@@ -31,6 +31,7 @@ app.include_router(query.router, prefix="/api")
 app.include_router(feedback.router, prefix="/api")
 app.include_router(whatsapp.router, prefix="/api")
 app.include_router(archive.router, prefix="/api")
+app.include_router(vision.router, prefix="/api")
 
 
 @app.get("/health")

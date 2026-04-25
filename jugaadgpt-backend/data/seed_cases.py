@@ -45,7 +45,7 @@ async def seed(file_path: str | None = None):
         with open(hero_path) as f:
             cases = json.load(f)
 
-    print(f"Embedding {len(cases)} cases with Voyage AI...")
+    print(f"Embedding {len(cases)} cases...")
     texts = [build_embedding_text(c) for c in cases]
     embeddings = await embed_documents_batched(texts)
 

@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-variant": "#e4e2dd",
+                    "secondary": "#934b19",
+                    "background": "#fbf9f4",
+                    "outline": "#737781",
+                    "primary-container": "#1a4b84",
+                    "on-background": "#1b1c19",
+                    "on-tertiary-fixed-variant": "#544600",
+                    "tertiary-container": "#c9a900",
+                    "surface-dim": "#dbdad5",
+                    "surface-container-low": "#f5f3ee",
+                    "error": "#ba1a1a",
+                    "secondary-fixed": "#ffdbc9",
+                    "tertiary-fixed": "#ffe16d",
+                    "on-error": "#ffffff",
+                    "on-secondary-fixed-variant": "#753401",
+                    "outline-variant": "#c3c6d1",
+                    "on-primary-fixed-variant": "#144780",
+                    "inverse-primary": "#a6c8ff",
+                    "primary-fixed-dim": "#a6c8ff",
+                    "primary": "#003466",
+                    "primary-fixed": "#d5e3ff",
+                    "inverse-surface": "#30312e",
+                    "surface-container-highest": "#e4e2dd",
+                    "surface": "#fbf9f4",
+                    "on-primary-fixed": "#001c3b",
+                    "on-primary": "#ffffff",
+                    "surface-bright": "#fbf9f4",
+                    "error-container": "#ffdad6",
+                    "on-secondary-container": "#783603",
+                    "tertiary-fixed-dim": "#e9c400",
+                    "on-surface": "#1b1c19",
+                    "secondary-container": "#ffa26a",
+                    "on-tertiary": "#ffffff",
+                    "on-error-container": "#93000a",
+                    "on-tertiary-container": "#4c3e00",
+                    "tertiary": "#705d00",
+                    "surface-container-high": "#eae8e3",
+                    "on-surface-variant": "#424750",
+                    "secondary-fixed-dim": "#ffb68c",
+                    "on-tertiary-fixed": "#221b00",
+                    "surface-container": "#f0eee9",
+                    "on-secondary-fixed": "#321200",
+                    "surface-container-lowest": "#ffffff",
+                    "surface-tint": "#335f99",
+                    "inverse-on-surface": "#f2f1ec",
+                    "on-primary-container": "#93bcfc",
+                    "on-secondary": "#ffffff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "sm": "8px",
+                    "margin": "20px",
+                    "lg": "24px",
+                    "xs": "4px",
+                    "gutter": "16px",
+                    "md": "16px",
+                    "base": "4px",
+                    "xl": "40px"
+            },
+            "fontFamily": {
+                    "display": ["Inter"],
+                    "data-tabular": ["Inter"],
+                    "annotation": ["cursive"],
+                    "body-md": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "headline-md": ["Inter"],
+                    "headline-lg": ["Inter"]
+            },
+            "fontSize": {
+                    "display": ["40px", {"lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "800"}],
+                    "data-tabular": ["14px", {"lineHeight": "1.4", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "annotation": ["16px", {"lineHeight": "1.2", "fontWeight": "400"}],
+                    "body-md": ["16px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                    "body-lg": ["18px", {"lineHeight": "1.5", "fontWeight": "500"}],
+                    "headline-md": ["22px", {"lineHeight": "1.2", "fontWeight": "700"}],
+                    "headline-lg": ["28px", {"lineHeight": "1.2", "fontWeight": "700"}]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .graph-paper {
+            background-image: 
+                linear-gradient(to right, rgba(0, 52, 102, 0.05) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(0, 52, 102, 0.05) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        .duct-tape-top-left::before {
+            content: '';
+            position: absolute;
+            top: -10px;
+            left: -10px;
+            width: 40px;
+            height: 12px;
+            background: #a1a1aa;
+            transform: rotate(-45deg);
+            z-index: 10;
+        }
+        .duct-tape-bottom-right::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            right: -10px;
+            width: 40px;
+            height: 12px;
+            background: #a1a1aa;
+            transform: rotate(-45deg);
+            z-index: 10;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md min-h-screen flex flex-col graph-paper">
+<!-- TopAppBar -->
+<header class="bg-stone-50 flex justify-between items-center w-full px-4 py-3 sticky top-0 z-50 border-b-4 border-blue-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-blue-900" style="font-variation-settings: 'FILL' 0;">construction</span>
+<h1 class="text-2xl font-black text-blue-900 italic">FABRICATOR</h1>
+</div>
+<button class="bg-tertiary-container border-2 border-black px-4 py-1 font-mono font-bold uppercase tracking-widest text-sm hover:bg-yellow-400 hover:text-black transition-colors active:translate-x-0.5 active:translate-y-0.5 active:shadow-none">
+            NEW PROJECT
+        </button>
+</header>
+<main class="flex-grow flex flex-col max-w-4xl mx-auto w-full px-margin py-lg gap-lg mb-24">
+<!-- Project Context Header -->
+<div class="relative bg-white border-4 border-primary p-md shadow-[8px_8px_0px_0px_rgba(0,52,102,0.2)] duct-tape-top-left">
+<div class="flex flex-col gap-xs">
+<span class="text-xs font-bold uppercase text-primary/60 tracking-tighter">Current Build Log:</span>
+<h2 class="font-headline-lg text-primary uppercase">Pedal-Powered Pump</h2>
+<div class="flex gap-sm mt-xs">
+<span class="bg-primary text-white text-[10px] px-2 py-0.5 font-bold">SCRAP CYCLE RIM</span>
+<span class="bg-primary text-white text-[10px] px-2 py-0.5 font-bold">PVC PIPE 2"</span>
+</div>
+</div>
+<div class="absolute top-2 right-2">
+<span class="material-symbols-outlined text-primary/20 text-4xl">inventory_2</span>
+</div>
+</div>
+<!-- Chat Container -->
+<div class="flex flex-col gap-lg overflow-y-auto">
+<!-- User Message -->
+<div class="flex justify-end ml-xl">
+<div class="bg-white border-[4px] border-black p-md shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] relative">
+<p class="font-bold text-primary italic">"I have an old 26-inch cycle rim and 3 meters of PVC pipe. Can we build a manual water pump?"</p>
+<div class="mt-2 text-[10px] font-black text-primary/40 uppercase">Fabricator User • 09:42 AM</div>
+</div>
+</div>
+<!-- AI Response (Fabricator Assistant) -->
+<div class="flex justify-start mr-xl">
+<div class="bg-tertiary-container border-[4px] border-black p-md shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] relative">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined font-bold">smart_toy</span>
+<span class="font-bold uppercase text-sm tracking-widest">FABRICATOR ENGINE</span>
+</div>
+<p class="font-bold leading-tight">SOLUTION GENERATED. Yes, this is a classic workshop hack. Using the cycle rim as a high-torque pulley and the PVC as the piston cylinder.</p>
+<div class="mt-4 border-t-2 border-black/20 pt-sm">
+<p class="text-sm font-black underline mb-2">REQUIRED STEPS:</p>
+<ol class="list-decimal list-inside space-y-1 font-bold text-sm">
+<li>Cut PVC pipe into 1.2m sections for main cylinder.</li>
+<li>Mount rim to a wooden A-frame for stability.</li>
+<li>Connect rubber belt from rim to PVC plunger rod.</li>
+</ol>
+</div>
+<!-- Schematic Preview -->
+<div class="mt-4 bg-primary p-2 border-2 border-black">
+<img alt="Technical drawing of a mechanical water pump" class="w-full h-32 object-cover border-2 border-white opacity-90 grayscale contrast-125" data-alt="Monochrome blueprint style technical drawing of a pedal-powered water pump system with cycle rim and pvc pipes on aged paper texture" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBbzee7f7ICrMAoLs4OhkuvmezLhTolgtZklHIJOXozIzguZ5wYjxW1CifuHulliirA-q1PJKAE7MqDZ4IXr-RRQ_3LBwHwd5uiiASEw23nCHBtBnKGgTdJWdNceMqtnOLbp8jFjJJQL9jrUFF1i9CMxPoJy3tM8rxCAPDClyTt4OBSO1QhWXSKYgw6o_DgE8CDn_zBe6aVhLW517W3EzmYwMQsvJXwQ-vfTpV4vFUaky3G7aTRp_zddXGgdzvXwlsB-QkWuOALSQI"/>
+<div class="text-[10px] text-white font-mono mt-1 text-center">FIG 1.1: ASSEMBLY OVERVIEW</div>
+</div>
+<div class="mt-2 text-[10px] font-black text-black/60 uppercase">System Ready • Input needed for next step.</div>
+</div>
+</div>
+<!-- User Query -->
+<div class="flex justify-end ml-xl">
+<div class="bg-white border-[4px] border-black p-md shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] relative">
+<p class="font-bold text-primary italic">"How do I seal the piston inside the PVC pipe so it actually sucks water?"</p>
+<div class="mt-2 text-[10px] font-black text-primary/40 uppercase">Fabricator User • 09:45 AM</div>
+</div>
+</div>
+<!-- AI Detailed Response -->
+<div class="flex justify-start mr-xl">
+<div class="bg-tertiary-container border-[4px] border-black p-md shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] relative">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined font-bold">build</span>
+<span class="font-bold uppercase text-sm tracking-widest">WORKSHOP ADVISORY</span>
+</div>
+<p class="font-bold leading-tight">CRITICAL SEALING TECHNIQUE:</p>
+<p class="mt-2 text-sm">Use a **leather washer** or two **rubber gaskets** between two PVC caps. Soak the leather in oil first for a tighter air-seal. This will create the suction needed for the 2" pipe.</p>
+<div class="mt-4 bg-white/50 p-2 border-2 border-dashed border-black">
+<p class="text-xs font-mono font-bold">TIP: Use recycled tractor inner-tube rubber if new gaskets are unavailable.</p>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Fixed Input Area (Floating style above nav) -->
+<div class="fixed bottom-20 left-0 w-full px-margin py-4 bg-background border-t-2 border-primary/10 z-40">
+<div class="max-w-4xl mx-auto">
+<div class="relative bg-white border-2 border-black p-2 flex items-center gap-2 shadow-[4px_4px_0px_0px_rgba(0,52,102,1)]">
+<div class="absolute -top-3 left-4 bg-yellow-400 border-2 border-black px-2 text-[10px] font-black uppercase">Technical Input</div>
+<input class="flex-grow bg-transparent border-none focus:ring-0 font-mono font-bold text-sm placeholder:text-primary/30" placeholder="ASK ABOUT MATERIALS, ASSEMBLY, OR MAINTENANCE..." type="text"/>
+<button class="bg-primary text-white p-2 border-2 border-black active:translate-x-0.5 active:translate-y-0.5 active:shadow-none">
+<span class="material-symbols-outlined">send</span>
+</button>
+</div>
+</div>
+</div>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full h-20 z-50 flex justify-around items-stretch bg-stone-50 border-t-4 border-blue-900 shadow-[0_-4px_0px_0px_rgba(0,0,0,0.1)]">
+<div class="flex flex-col items-center justify-center text-blue-900 dark:text-stone-400 opacity-80 h-full px-2 flex-grow border-r-2 border-blue-900/20 hover:bg-blue-100 transition-all cursor-pointer">
+<span class="material-symbols-outlined">home_repair_service</span>
+<span class="font-mono text-[10px] font-black uppercase">Workshop</span>
+</div>
+<div class="flex flex-col items-center justify-center bg-yellow-400 text-black border-x-2 border-black h-full px-2 flex-grow hover:bg-blue-100 transition-all cursor-pointer">
+<span class="material-symbols-outlined">architecture</span>
+<span class="font-mono text-[10px] font-black uppercase">Blueprints</span>
+</div>
+<div class="flex flex-col items-center justify-center text-blue-900 dark:text-stone-400 opacity-80 h-full px-2 flex-grow border-r-2 border-blue-900/20 hover:bg-blue-100 transition-all cursor-pointer">
+<span class="material-symbols-outlined">storefront</span>
+<span class="font-mono text-[10px] font-black uppercase">Bazaari</span>
+</div>
+<div class="flex flex-col items-center justify-center text-blue-900 dark:text-stone-400 opacity-80 h-full px-2 flex-grow hover:bg-blue-100 transition-all cursor-pointer">
+<span class="material-symbols-outlined">inventory_2</span>
+<span class="font-mono text-[10px] font-black uppercase">Archive</span>
+</div>
+</nav>
+</body></html>

@@ -12,7 +12,12 @@
       "PowerShell(curl.exe -s -H \"ngrok-skip-browser-warning: 1\" https://erratically-shakeable-merlyn.ngrok-free.dev/health)",
       "Bash(psql \"postgresql://jugaad:jugaad_secret@localhost:5432/jugaadgpt\" -c \"SELECT COUNT\\(*\\) FROM jugaad_cases;\")",
       "Read(//c/Program Files/**)",
-      "Bash('C:\\\\Users\\\\jayra\\\\AppData\\\\Local\\\\Python\\\\pythoncore-3.14-64\\\\Scripts\\\\poetry.exe' run python -c ' *)"
+      "Bash('C:\\\\Users\\\\jayra\\\\AppData\\\\Local\\\\Python\\\\pythoncore-3.14-64\\\\Scripts\\\\poetry.exe' run python -c ' *)",
+      "Read(//c/Desktop/Odyssey/**)"
+    ],
+    "additionalDirectories": [
+      "c:\\Desktop\\Odyssey\\jugaadgpt-frontend\\web\\src\\components",
+      "c:\\Desktop\\Odyssey\\jugaadgpt-frontend\\web\\src\\app\\chat"
     ]
   }
 }

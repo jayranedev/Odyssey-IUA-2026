@@ -21,6 +21,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from sqlalchemy import text
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.config import settings
@@ -28,7 +29,7 @@ from app.models.jugaad_case import JugaadCase
 from app.services.embeddings import embed_documents_batched
 
 JSONL_PATH = Path(__file__).parent.parent / "wikihow_rag_dataset.jsonl"
-BATCH_SIZE = 32
+BATCH_SIZE = 256
 
 
 def to_jugaad_case(doc: dict) -> dict:
@@ -153,35 +154,38 @@ async def seed(limit: int | None = None, dry_run: bool = False):
         chunk = pending[chunk_start : chunk_start + BATCH_SIZE]
         texts = [f"{c['title']} {c['problem_description']}" for c in chunk]
 
-        embeddings = await embed_documents_batched(texts, batch_size=BATCH_SIZE, inter_batch_delay=0)
-        await asyncio.sleep(1.5)  # stay well under Voyage free-tier rate limit
+        embeddings = await embed_documents_batched(texts, batch_size=64, inter_batch_delay=0)
+
+        rows = [
+            {
+                "id": c["id"],
+                "title": c["title"],
+                "problem_type": c["problem_type"],
+                "problem_description": c["problem_description"],
+                "solution_summary": c["solution_summary"],
+                "materials_json": c["materials_json"],
+                "build_steps_json": c["build_steps_json"],
+                "total_cost_inr": c["total_cost_inr"],
+                "climate_tags": c["climate_tags"],
+                "region_tags": c["region_tags"],
+                "power_required": c["power_required"],
+                "skill_level": c["skill_level"],
+                "source_url": c["source_url"],
+                "failure_modes": c["failure_modes"],
+                "embedding": emb if isinstance(emb, list) else emb.tolist(),
+            }
+            for c, emb in zip(chunk, embeddings)
+        ]
 
         async with Session() as db:
-            db.add_all([
-                JugaadCase(
-                    id=c["id"],
-                    title=c["title"],
-                    problem_type=c["problem_type"],
-                    problem_description=c["problem_description"],
-                    solution_summary=c["solution_summary"],
-                    materials_json=c["materials_json"],
-                    build_steps_json=c["build_steps_json"],
-                    total_cost_inr=c["total_cost_inr"],
-                    climate_tags=c["climate_tags"],
-                    region_tags=c["region_tags"],
-                    power_required=c["power_required"],
-                    skill_level=c["skill_level"],
-                    source_url=c["source_url"],
-                    failure_modes=c["failure_modes"],
-                    embedding=emb if isinstance(emb, list) else emb.tolist(),
-                )
-                for c, emb in zip(chunk, embeddings)
-            ])
+            stmt = pg_insert(JugaadCase).values(rows).on_conflict_do_nothing(index_elements=["id"])
+            result = await db.execute(stmt)
             await db.commit()
+            inserted += result.rowcount
 
-        inserted += len(chunk)
-        pct = inserted / total * 100
-        print(f"  [{pct:5.1f}%] {inserted}/{total}", flush=True)
+        done = chunk_start + len(chunk)
+        pct = done / total * 100
+        print(f"  [{pct:5.1f}%] {done}/{total} (inserted={inserted})", flush=True)
 
     await engine.dispose()
     print(f"\nDone. Inserted {inserted} records.")
