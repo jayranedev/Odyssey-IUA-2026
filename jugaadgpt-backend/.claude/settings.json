@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(poetry --version)",
+      "PowerShell(python --version)",
+      "PowerShell(pip --version)",
+      "PowerShell(docker --version)",
+      "PowerShell(pip install poetry)",
+      "PowerShell(docker compose -f \"c:\\\\Desktop\\\\Odyssey\\\\jugaadgpt-backend\\\\docker-compose.yml\" ps 2>&1)",
+      "PowerShell(Start-Process -FilePath \"ngrok\" -ArgumentList \"http 8000\" -WindowStyle Normal)",
+      "PowerShell(curl.exe -s http://localhost:4040/api/tunnels 2>&1)",
+      "PowerShell(curl.exe -s -H \"ngrok-skip-browser-warning: 1\" https://erratically-shakeable-merlyn.ngrok-free.dev/health)",
+      "Bash(psql \"postgresql://jugaad:jugaad_secret@localhost:5432/jugaadgpt\" -c \"SELECT COUNT\\(*\\) FROM jugaad_cases;\")",
+      "Read(//c/Program Files/**)",
+      "Bash('C:\\\\Users\\\\jayra\\\\AppData\\\\Local\\\\Python\\\\pythoncore-3.14-64\\\\Scripts\\\\poetry.exe' run python -c ' *)"
+    ]
+  }
+}

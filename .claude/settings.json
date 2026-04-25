@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:innovation.nif.org.in)",
+      "Bash(venv/Scripts/python.exe -c ' *)"
+    ]
+  }
+}

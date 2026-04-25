@@ -1,0 +1,22 @@
+
+> web@0.1.0 dev
+> next dev
+
+⚠ Port 3000 is in use by process 30264, using available port 3001 instead.
+▲ Next.js 16.2.4 (Turbopack)
+- Local:         http://localhost:3001
+- Network:       http://192.168.0.158:3001
+✓ Ready in 490ms
+⚠ `eslint` configuration in next.config.mjs is no longer supported. See more info here: https://nextjs.org/docs/app/api-reference/cli/next#next-lint-options
+⚠ Invalid next.config.mjs options detected: 
+⚠     Unrecognized key(s) in object: 'eslint'
+⚠ See more info here: https://nextjs.org/docs/messages/invalid-next-config
+⨯ Another next dev server is already running.
+
+- Local:        http://localhost:3000
+- PID:          30264
+- Dir:          C:\Desktop\Odyssey\jugaadgpt-frontend\web
+- Log:          .next\dev\logs\next-development.log
+
+Run taskkill /PID 30264 /F to stop it.
+[?25h

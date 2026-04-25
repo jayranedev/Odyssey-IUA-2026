@@ -1,0 +1,38 @@
+[tool.poetry]
+name = "jugaadgpt-backend"
+version = "0.1.0"
+description = "JugaadGPT — Constraint-first AI for India's street-smart solutions"
+authors = ["Jay Rane <jayrane2004@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "^0.115.0"
+uvicorn = {extras = ["standard"], version = "^0.32.0"}
+sqlalchemy = {extras = ["asyncio"], version = "^2.0.36"}
+asyncpg = "^0.30.0"
+psycopg2-binary = "^2.9.10"
+alembic = "^1.14.0"
+pgvector = "^0.3.6"
+anthropic = "^0.40.0"
+pydantic = "^2.10.0"
+pydantic-settings = "^2.6.0"
+python-dotenv = "^1.0.1"
+sse-starlette = "^2.1.3"
+groq = "^0.13.0"
+python-multipart = "^0.0.20"
+httpx = "^0.28.0"
+fastembed = "^0.4.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.4"
+pytest-asyncio = "^0.24.0"
+httpx = "^0.28.0"
+ruff = "^0.8.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
