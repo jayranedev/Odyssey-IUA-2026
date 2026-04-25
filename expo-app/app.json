@@ -1,0 +1,22 @@
+{
+  "expo": {
+    "name": "JugaadGPT Mobile",
+    "slug": "jugaadgpt-mobile",
+    "scheme": "jugaadgptmobile",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "platforms": [
+      "android"
+    ],
+    "version": "1.0.0",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "android": {
+      "package": "com.jugaadgpt.mobile"
+    },
+    "ios": {
+      "supportsTablet": false
+    }
+  }
+}
