@@ -56,9 +56,9 @@ async def query(request: QueryRequest, db: AsyncSession = Depends(get_db)):
             # Load conversation history for this session
             history = format_history_for_prompt(request.session_id)
 
-            # Step 1: Extract constraints (history gives context for follow-ups)
+            # Step 1: Extract constraints — pass history so follow-up queries have context
             yield _sse("status", "Analysing your constraints...")
-            constraints = await extract_constraints(request.message, request.image_base64)
+            constraints = await extract_constraints(request.message, request.image_base64, history)
 
             # Auto-fill season from current date if not in message
             if not constraints.season or constraints.season == "unknown":
@@ -229,6 +229,55 @@ async def text_to_speech(body: dict):
     )
     audio_bytes = response.read()
     return Response(content=audio_bytes, media_type="audio/mpeg")
+
+
+@router.post("/ocr")
+async def ocr_scan(body: dict):
+    """
+    Image → list of items/materials (for the Workshop scraps list).
+    Uses Claude vision to identify objects in the photo.
+    Body: {"image_base64": "...", "image_type": "image/jpeg"}
+    """
+    image_base64 = body.get("image_base64", "")
+    image_type = body.get("image_type", "image/jpeg")
+    if not image_base64:
+        return {"items": []}
+
+    from app.llm.anthropic_client import get_client
+    client = get_client()
+    response = await client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=300,
+        messages=[{
+            "role": "user",
+            "content": [
+                {
+                    "type": "image",
+                    "source": {"type": "base64", "media_type": image_type, "data": image_base64},
+                },
+                {
+                    "type": "text",
+                    "text": (
+                        "List all visible items, materials, tools, or objects in this image. "
+                        "Return ONLY a JSON array of short strings (1-4 words each), no other text. "
+                        "Max 10 items. Example: [\"Iron rod\", \"PVC pipe\", \"Old tyre\"]"
+                    ),
+                },
+            ],
+        }],
+    )
+    raw = response.content[0].text.strip()
+    if raw.startswith("```"):
+        raw = raw.split("```")[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+    try:
+        items = json.loads(raw.strip())
+        if isinstance(items, list):
+            return {"items": [str(i) for i in items[:10]]}
+    except Exception:
+        pass
+    return {"items": []}
 
 
 def _build_clarifying_question(missing_fields: list[str], lang: str = "hinglish") -> str:

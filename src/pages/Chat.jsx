@@ -47,54 +47,59 @@ async function fileToBase64(file) {
   });
 }
 
-// ── Text-to-speech ────────────────────────────────────────────
-
-function speakText(text, voiceLang = 'en-IN') {
-  if (!window.speechSynthesis) return;
-  window.speechSynthesis.cancel();
-  const utt = new SpeechSynthesisUtterance(text);
-  utt.lang = voiceLang;
-  utt.rate = 0.92;
-  utt.pitch = 1;
-  window.speechSynthesis.speak(utt);
-}
-
-function stopSpeaking() {
-  window.speechSynthesis?.cancel();
-}
+// ── Text-to-speech (backend Groq TTS) ────────────────────────
 
 const SpeakButton = ({ text, voiceLang }) => {
-  const [speaking, setSpeaking] = useState(false);
+  const [state, setState] = useState('idle'); // idle | loading | playing
+  const audioRef = useRef(null);
 
-  const toggle = () => {
-    if (speaking) {
-      stopSpeaking();
-      setSpeaking(false);
-    } else {
-      setSpeaking(true);
-      speakText(text, voiceLang);
-      // detect end
-      const check = setInterval(() => {
-        if (!window.speechSynthesis?.speaking) { setSpeaking(false); clearInterval(check); }
-      }, 250);
+  const stop = () => {
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+    setState('idle');
+  };
+
+  const toggle = async () => {
+    if (state !== 'idle') { stop(); return; }
+
+    setState('loading');
+    try {
+      const lang = voiceLang === 'hi-IN' ? 'hi' : 'en';
+      const res = await fetch(`${API_BASE}/api/tts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: text.slice(0, 1000), lang }),
+      });
+      if (!res.ok) throw new Error('TTS failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      audio.onended = () => { URL.revokeObjectURL(url); setState('idle'); };
+      audio.onerror = () => { URL.revokeObjectURL(url); setState('idle'); };
+      setState('playing');
+      audio.play();
+    } catch {
+      setState('idle');
     }
   };
 
-  if (!window.speechSynthesis) return null;
+  const icon = state === 'loading' ? '⏳' : state === 'playing' ? '⏹' : '🔊';
+  const label = state === 'loading' ? 'Loading…' : state === 'playing' ? 'Stop' : 'Read aloud';
+
   return (
     <button
       onClick={toggle}
-      title={speaking ? 'Stop reading' : 'Read aloud'}
+      title={label}
       style={{
-        background: 'none', border: 'none', cursor: 'pointer',
-        fontSize: 15, opacity: 0.55, padding: '2px 4px',
-        color: speaking ? 'var(--jg2-brick)' : 'var(--jg2-graphite)',
+        background: 'none', border: 'none', cursor: state === 'loading' ? 'wait' : 'pointer',
+        fontSize: 15, opacity: state !== 'idle' ? 1 : 0.55, padding: '2px 4px',
+        color: state === 'playing' ? 'var(--jg2-brick)' : 'var(--jg2-graphite)',
         transition: 'opacity 0.15s',
       }}
       onMouseEnter={e => e.currentTarget.style.opacity = 1}
-      onMouseLeave={e => e.currentTarget.style.opacity = speaking ? 1 : 0.55}
+      onMouseLeave={e => { if (state === 'idle') e.currentTarget.style.opacity = 0.55; }}
     >
-      {speaking ? '⏹' : '🔊'}
+      {icon}
     </button>
   );
 };
@@ -104,49 +109,80 @@ const SpeakButton = ({ text, voiceLang }) => {
 function useVoice(onFinal, onInterim) {
   const [listening, setListening] = useState(false);
   const [supported, setSupported] = useState(false);
+  // All mutable state lives in refs so closures always see current values
+  const stateRef = useRef({ active: false, lang: 'hi-IN' });
   const recRef = useRef(null);
+  const onFinalRef = useRef(onFinal);
+  const onInterimRef = useRef(onInterim);
+
+  useEffect(() => { onFinalRef.current = onFinal; }, [onFinal]);
+  useEffect(() => { onInterimRef.current = onInterim; }, [onInterim]);
 
   useEffect(() => {
     setSupported('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
   }, []);
 
-  const start = useCallback((lang = 'hi-IN') => {
+  // Creates a fresh SR instance and starts it. Called on first start and on every auto-restart.
+  const startInstance = useCallback(() => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) return;
-    if (recRef.current) { recRef.current.stop(); }
+    if (!SR || !stateRef.current.active) return;
 
     const rec = new SR();
-    rec.lang = lang;
+    rec.lang = stateRef.current.lang;
     rec.interimResults = true;
     rec.maxAlternatives = 1;
-    rec.continuous = true; // keep recording until user clicks stop
+    rec.continuous = true;
 
     rec.onresult = (e) => {
       const results = Array.from(e.results);
       const transcript = results.map(r => r[0].transcript).join('');
       const isFinal = results[results.length - 1].isFinal;
-      if (isFinal) onFinal(transcript);
-      else onInterim?.(transcript);
+      if (isFinal) onFinalRef.current(transcript);
+      else onInterimRef.current?.(transcript);
     };
 
     rec.onerror = (e) => {
-      if (e.error !== 'no-speech') setListening(false);
+      // Only kill listening on hard permission errors; no-speech is handled by onend restart
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+        stateRef.current.active = false;
+        setListening(false);
+      }
     };
+
     rec.onend = () => {
-      // auto-restart if still in listening state (handles Chrome's 60s limit)
-      if (recRef.current === rec && listening) {
-        try { rec.start(); } catch { setListening(false); }
+      // Chrome ends the session after ~60s or on no-speech — always restart with a NEW instance
+      if (stateRef.current.active) {
+        setTimeout(startInstance, 150);
       }
     };
 
     recRef.current = rec;
-    rec.start();
+    try {
+      rec.start();
+    } catch {
+      stateRef.current.active = false;
+      setListening(false);
+    }
+  }, []); // stable — reads via refs, no deps needed
+
+  const start = useCallback((lang = 'hi-IN') => {
+    // Abort any existing session first (won't trigger restart because active stays true briefly)
+    if (recRef.current) {
+      try { recRef.current.abort(); } catch {}
+      recRef.current = null;
+    }
+    stateRef.current = { active: true, lang };
     setListening(true);
-  }, [onFinal, onInterim]);
+    startInstance();
+  }, [startInstance]);
 
   const stop = useCallback(() => {
-    if (recRef.current) { recRef.current.stop(); recRef.current = null; }
+    stateRef.current.active = false; // set BEFORE abort so onend doesn't restart
     setListening(false);
+    if (recRef.current) {
+      try { recRef.current.abort(); } catch {}
+      recRef.current = null;
+    }
   }, []);
 
   return { listening, start, stop, supported };
@@ -471,6 +507,8 @@ const Chat = () => {
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
   const streamingIdxRef = useRef(null);
+  const workshopImageRef = useRef(null); // base64 from workshop, used once on first send
+  const [workshopImagePreview, setWorkshopImagePreview] = useState(null);
 
   // Load workshop context or existing session
   useEffect(() => {
@@ -482,6 +520,10 @@ const Chat = () => {
           if (parsed && typeof parsed === 'object') {
             setWorkshopCtx(parsed);
             setInput(parsed.prompt || '');
+            if (parsed.imageBase64) {
+              workshopImageRef.current = parsed.imageBase64;
+              setWorkshopImagePreview(`data:${parsed.imageType || 'image/jpeg'};base64,${parsed.imageBase64}`);
+            }
           } else {
             setInput(raw);
           }
@@ -651,6 +693,11 @@ const Chat = () => {
     let imgBase64 = null;
     if (imageFile) {
       try { imgBase64 = await fileToBase64(imageFile); } catch { /* ignore */ }
+    } else if (workshopImageRef.current) {
+      // one-time use: image uploaded on the Workshop page
+      imgBase64 = workshopImageRef.current;
+      workshopImageRef.current = null;
+      setWorkshopImagePreview(null);
     }
 
     setInput('');
@@ -675,6 +722,8 @@ const Chat = () => {
     setMessages([]);
     setWorkshopCtx(null);
     setImageFile(null);
+    workshopImageRef.current = null;
+    setWorkshopImagePreview(null);
     pendingContext.current = [];
     setSavedIdx(new Set());
     inputRef.current?.focus();
@@ -758,23 +807,39 @@ const Chat = () => {
           <div style={{ fontSize: 10, fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--jg2-mute)', marginBottom: 4 }}>
             Current Build Log
           </div>
-          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: workshopCtx.scraps?.length ? 6 : 0 }}>
-            {workshopCtx.title || 'New Project'}
-          </div>
-          {workshopCtx.scraps?.filter(Boolean).length > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-              {workshopCtx.scraps.filter(Boolean).map((s, i) => (
-                <span key={i} style={{ background: 'var(--jg2-ink)', color: 'var(--jg2-paper)', fontSize: 10, padding: '2px 7px', fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, textTransform: 'uppercase' }}>
-                  {s}
-                </span>
-              ))}
-              {workshopCtx.budget && (
-                <span style={{ background: 'var(--jg2-yellow)', color: 'var(--jg2-ink)', fontSize: 10, padding: '2px 7px', fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, border: '1px solid var(--jg2-ink)' }}>
-                  ₹{workshopCtx.budget}
-                </span>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+            {workshopImagePreview && (
+              <img
+                src={workshopImagePreview}
+                alt="scrap"
+                style={{ height: 52, width: 52, objectFit: 'cover', border: '2px solid var(--jg2-ink)', flexShrink: 0 }}
+              />
+            )}
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700, fontSize: 14, marginBottom: workshopCtx.scraps?.length ? 6 : 0 }}>
+                {workshopCtx.title || 'New Project'}
+              </div>
+              {workshopCtx.scraps?.filter(Boolean).length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                  {workshopCtx.scraps.filter(Boolean).map((s, i) => (
+                    <span key={i} style={{ background: 'var(--jg2-ink)', color: 'var(--jg2-paper)', fontSize: 10, padding: '2px 7px', fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, textTransform: 'uppercase' }}>
+                      {s}
+                    </span>
+                  ))}
+                  {workshopCtx.budget && (
+                    <span style={{ background: 'var(--jg2-yellow)', color: 'var(--jg2-ink)', fontSize: 10, padding: '2px 7px', fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, border: '1px solid var(--jg2-ink)' }}>
+                      ₹{workshopCtx.budget}
+                    </span>
+                  )}
+                  {workshopImagePreview && (
+                    <span style={{ background: 'var(--jg2-brick-soft)', color: 'var(--jg2-brick)', fontSize: 10, padding: '2px 7px', fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, border: '1px solid var(--jg2-brick)' }}>
+                      📷 photo attached
+                    </span>
+                  )}
+                </div>
               )}
             </div>
-          )}
+          </div>
         </div>
       )}
 

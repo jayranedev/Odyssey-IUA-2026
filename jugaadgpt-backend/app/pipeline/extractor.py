@@ -42,8 +42,15 @@ EXTRACT_SYSTEM_VISION = EXTRACT_SYSTEM + """
 The user has also provided an image. Identify any materials, tools, or environmental context visible in the image and add them to available_materials."""
 
 
-async def extract_constraints(message: str, image_base64: str | None = None) -> Constraints:
+async def extract_constraints(
+    message: str,
+    image_base64: str | None = None,
+    history: str = "",
+) -> Constraints:
     client = get_client()
+
+    # Prepend conversation history so follow-up queries have full context
+    full_message = f"{history}\n\nUser's latest message: {message}" if history else message
 
     if image_base64:
         model = "claude-sonnet-4-6"
@@ -57,12 +64,12 @@ async def extract_constraints(message: str, image_base64: str | None = None) -> 
                     "data": image_base64,
                 },
             },
-            {"type": "text", "text": message},
+            {"type": "text", "text": full_message},
         ]
     else:
         model = "claude-haiku-4-5-20251001"
         system = EXTRACT_SYSTEM
-        content = message
+        content = full_message
 
     response = await client.messages.create(
         model=model,
@@ -77,17 +84,26 @@ async def extract_constraints(message: str, image_base64: str | None = None) -> 
         raw = raw.split("```")[1]
         if raw.startswith("json"):
             raw = raw[4:]
-    data = json.loads(raw)
-    # Coerce null string fields to "" so Pydantic doesn't fail on one-word replies
-    for field in ("problem_type", "specific_issue", "location_state", "season", "climate"):
-        if data.get(field) is None:
-            data[field] = ""
+    raw = raw.strip()
+
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        # LLM returned prose (common on vague follow-ups) — use safe defaults
+        data = {}
+
+    # Coerce null / missing fields so Pydantic never sees unexpected types
+    for f in ("problem_type", "specific_issue", "location_state", "season", "climate"):
+        if not data.get(f):
+            data[f] = ""
+    if not data.get("specific_issue"):
+        data["specific_issue"] = message[:200]
     if data.get("power_availability") is None:
         data["power_availability"] = "unknown"
     if data.get("skill_level") is None:
         data["skill_level"] = "basic"
-    if data.get("available_materials") is None:
+    if not isinstance(data.get("available_materials"), list):
         data["available_materials"] = []
-    if data.get("missing_constraints") is None:
+    if not isinstance(data.get("missing_constraints"), list):
         data["missing_constraints"] = []
     return Constraints(**data)

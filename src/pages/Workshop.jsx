@@ -1,26 +1,95 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const WORKSHOP_KEY = 'jg_workshop_draft';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+// Resize + encode image to base64 so it fits in localStorage and the API
+async function compressToBase64(file, maxWidth = 1024, quality = 0.82) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const ratio = Math.min(1, maxWidth / img.width);
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * ratio);
+      canvas.height = Math.round(img.height * ratio);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      const dataUrl = canvas.toDataURL('image/jpeg', quality);
+      resolve(dataUrl.split(',')[1]); // base64 only, no prefix
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
 
 const Workshop = () => {
   const navigate = useNavigate();
   const [problem, setProblem] = useState('');
   const [scraps, setScraps] = useState(['Old cycle rim', 'PVC Pipe (2 meters)', '']);
   const [budget, setBudget] = useState(500);
-  const [previewImage, setPreviewImage] = useState(null);
+  const [imageFile, setImageFile] = useState(null);       // raw File object
+  const [previewUrl, setPreviewUrl] = useState(null);     // blob URL for <img> preview
+  const [generating, setGenerating] = useState(false);
+  const [scanning, setScanning] = useState(false);        // OCR in progress
+  const [scanError, setScanError] = useState('');
+  const scanInputRef = useRef(null);
 
-  const handleGenerate = () => {
-    if (!problem.trim()) return;
+  const handleImageChange = (file) => {
+    if (!file) return;
+    setImageFile(file);
+    setPreviewUrl(URL.createObjectURL(file));
+  };
+
+  // OCR: compress the scan photo, send to /api/ocr, add returned items to scraps list
+  const handleScanItem = async (file) => {
+    if (!file) return;
+    setScanning(true);
+    setScanError('');
+    try {
+      const base64 = await compressToBase64(file, 1024, 0.82);
+      const res = await fetch(`${API_BASE}/api/ocr`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image_base64: base64, image_type: file.type || 'image/jpeg' }),
+      });
+      if (!res.ok) throw new Error('OCR failed');
+      const { items } = await res.json();
+      if (!items?.length) { setScanError('No items detected — try a clearer photo'); return; }
+      // Merge into scraps: drop trailing empty slot, append items, re-add empty slot
+      setScraps(prev => {
+        const existing = prev.filter(Boolean);
+        const deduped = items.filter(i => !existing.some(e => e.toLowerCase() === i.toLowerCase()));
+        return [...existing, ...deduped, ''];
+      });
+    } catch {
+      setScanError('Could not scan — check your connection');
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  const handleGenerate = async () => {
+    if (!problem.trim() || generating) return;
+    setGenerating(true);
+
+    let imageBase64 = null;
+    if (imageFile) {
+      try { imageBase64 = await compressToBase64(imageFile); } catch { /* skip image on error */ }
+    }
 
     const ctx = {
       title: problem.substring(0, 60),
       scraps: scraps.filter(Boolean),
       budget,
+      imageBase64,                       // null if no image, base64 string if attached
+      imageType: imageFile?.type || null,
       prompt: [
         `Problem: ${problem}`,
         scraps.filter(Boolean).length ? `Scraps available: ${scraps.filter(Boolean).join(', ')}` : '',
         `Budget: ₹${budget}`,
+        imageBase64 ? '(photo of scraps/materials attached)' : '',
       ].filter(Boolean).join('\n'),
     };
 
@@ -66,11 +135,32 @@ const Workshop = () => {
                 <span className="material-symbols-outlined text-primary">inventory</span>
                 <label className="font-display text-2xl uppercase tracking-tight">Available Scraps</label>
               </div>
-              <button className="flex items-center gap-1 bg-[#1A4B84] text-white px-3 py-1 font-display text-xs font-bold uppercase active:scale-95 transition-transform">
-                <span className="material-symbols-outlined text-sm">photo_camera</span>
-                Scan Item
-              </button>
+              <div className="flex items-center gap-2">
+                {scanning && (
+                  <span className="font-annotation text-xs text-secondary italic animate-pulse">Scanning…</span>
+                )}
+                <button
+                  type="button"
+                  disabled={scanning}
+                  onClick={() => scanInputRef.current?.click()}
+                  className="flex items-center gap-1 bg-[#1A4B84] text-white px-3 py-1 font-display text-xs font-bold uppercase active:scale-95 transition-transform disabled:opacity-50"
+                >
+                  <span className="material-symbols-outlined text-sm">photo_camera</span>
+                  {scanning ? '…' : 'Scan Item'}
+                </button>
+                <input
+                  ref={scanInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) handleScanItem(f); e.target.value = ''; }}
+                />
+              </div>
             </div>
+            {scanError && (
+              <p className="text-error text-xs font-annotation mb-2">{scanError}</p>
+            )}
+
             <div className="space-y-2">
               {scraps.map((scrap, index) => (
                 <div key={index} className="flex items-center border-b border-dashed border-outline-variant py-2">
@@ -87,10 +177,7 @@ const Workshop = () => {
                     placeholder={index === scraps.length - 1 ? 'Add more scrap...' : ''}
                   />
                   {scrap && (
-                    <button
-                      className="text-error px-2"
-                      onClick={() => setScraps(scraps.filter((_, i) => i !== index))}
-                    >
+                    <button className="text-error px-2" onClick={() => setScraps(scraps.filter((_, i) => i !== index))}>
                       <span className="material-symbols-outlined text-sm">close</span>
                     </button>
                   )}
@@ -104,35 +191,37 @@ const Workshop = () => {
               </button>
             </div>
 
-            {/* Drop Scrap Photo Area */}
+            {/* Drop / upload image area */}
             <div
               className="mt-6 border-2 border-dashed border-primary-container p-6 bg-surface-container-highest flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-primary/5 transition-colors relative min-h-[160px]"
-              onClick={() => !previewImage && document.getElementById('scrap-upload').click()}
+              onClick={() => !previewUrl && document.getElementById('scrap-upload').click()}
+              onDragOver={e => e.preventDefault()}
+              onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f?.type.startsWith('image/')) handleImageChange(f); }}
             >
               <input
                 type="file"
                 id="scrap-upload"
                 className="hidden"
                 accept="image/*"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) setPreviewImage(URL.createObjectURL(file));
-                }}
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageChange(f); e.target.value = ''; }}
               />
-              {previewImage ? (
-                <div className="relative w-full h-full flex flex-col items-center">
+
+              {previewUrl ? (
+                <div className="relative w-full flex flex-col items-center">
                   <img
-                    src={previewImage}
+                    src={previewUrl}
                     alt="Scrap Preview"
-                    className="max-h-40 w-auto object-contain border-2 border-primary shadow-jugaad-black/20"
+                    className="max-h-48 w-auto object-contain border-2 border-primary shadow-jugaad-black/20"
                   />
                   <button
                     className="absolute -top-2 -right-2 bg-error text-white rounded-full p-1 shadow-lg hover:scale-110 transition-transform"
-                    onClick={(e) => { e.stopPropagation(); setPreviewImage(null); }}
+                    onClick={(e) => { e.stopPropagation(); setImageFile(null); setPreviewUrl(null); }}
                   >
                     <span className="material-symbols-outlined text-sm">close</span>
                   </button>
-                  <p className="mt-2 text-[10px] font-black text-primary uppercase">Image Captured • Scanning for materials...</p>
+                  <p className="mt-2 text-[10px] font-black text-primary uppercase">
+                    📎 Photo attached — will be sent with your query
+                  </p>
                 </div>
               ) : (
                 <>
@@ -141,7 +230,9 @@ const Workshop = () => {
                     <p className="font-display text-xl font-black text-primary leading-tight uppercase tracking-tighter">
                       Drop Scrap Photo Here
                     </p>
-                    <p className="text-xs text-secondary font-annotation italic">or click to browse files</p>
+                    <p className="text-xs text-secondary font-annotation italic">
+                      or click to browse — sent to AI with your query
+                    </p>
                   </div>
                 </>
               )}
@@ -172,13 +263,22 @@ const Workshop = () => {
         <div className="flex justify-center py-10">
           <button
             onClick={handleGenerate}
+            disabled={!problem.trim() || generating}
             className="group relative px-12 py-6 bg-[#FFD700] border-4 border-on-background shadow-jugaad-blue-lg active:translate-x-1 active:translate-y-1 active:shadow-none transition-all disabled:opacity-50"
-            disabled={!problem.trim()}
           >
             <div className="flex items-center gap-4">
-              <span className="font-display text-3xl font-black uppercase tracking-widest">Generate Solution</span>
-              <span className="material-symbols-outlined text-4xl">settings_suggest</span>
+              <span className="font-display text-3xl font-black uppercase tracking-widest">
+                {generating ? 'Preparing…' : 'Generate Solution'}
+              </span>
+              <span className="material-symbols-outlined text-4xl" style={{ animation: generating ? 'spin 1s linear infinite' : 'none' }}>
+                {generating ? 'progress_activity' : 'settings_suggest'}
+              </span>
             </div>
+            {imageFile && !generating && (
+              <div className="absolute -top-3 right-4 bg-primary text-white text-[10px] font-bold uppercase px-2 py-0.5 border border-white">
+                📷 + photo
+              </div>
+            )}
             <div className="absolute -left-20 top-1/2 -translate-y-1/2 hidden lg:block">
               <svg className="text-secondary rotate-12" width="60" height="40" viewBox="0 0 60 40" fill="none" stroke="currentColor">
                 <path d="M5 20C20 20 40 5 55 15M55 15L45 10M55 15L50 25" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
@@ -188,6 +288,8 @@ const Workshop = () => {
           </button>
         </div>
       </div>
+
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </main>
   );
 };
