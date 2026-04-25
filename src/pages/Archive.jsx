@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const BAZAARI_KEY = 'jg_bazaari';
+const BLUEPRINT_KEY = 'jg_blueprint';
 
 const STATIC_PROJECTS = [
   {
@@ -24,6 +27,7 @@ const STATIC_PROJECTS = [
 // ── Solution detail modal ─────────────────────────────────────
 
 const SolutionModal = ({ card, onClose }) => {
+  const navigate = useNavigate();
   let solution = null;
   if (card.solution_json) {
     try {
@@ -31,6 +35,23 @@ const SolutionModal = ({ card, onClose }) => {
       solution = parsed.solution || parsed;
     } catch { /* ignore */ }
   }
+
+  const loadBlueprint = () => {
+    localStorage.setItem(BLUEPRINT_KEY, JSON.stringify(solution));
+    onClose();
+    navigate('/blueprints');
+  };
+
+  const loadBazaari = () => {
+    localStorage.setItem(BAZAARI_KEY, JSON.stringify({
+      title: solution.title,
+      materials: solution.materials,
+      total_cost_inr: solution.total_cost_inr,
+      savedAt: Date.now(),
+    }));
+    onClose();
+    navigate('/bazaari');
+  };
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
@@ -130,6 +151,42 @@ const SolutionModal = ({ card, onClose }) => {
                   ))}
                 </div>
               )}
+
+              {/* Action buttons */}
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', paddingTop: 4, borderTop: '1px dashed #DFCCA9' }}>
+                {solution.build_steps?.length > 0 && (
+                  <button
+                    onClick={loadBlueprint}
+                    style={{
+                      flex: 1, minWidth: 140, padding: '10px 14px',
+                      background: '#fff', color: '#0E1B2D',
+                      border: '2px solid #0E1B2D', cursor: 'pointer',
+                      fontFamily: 'JetBrains Mono, monospace', fontWeight: 700,
+                      fontSize: 11, textTransform: 'uppercase',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                      boxShadow: '2px 2px 0 #0E1B2D',
+                    }}
+                  >
+                    📐 Load Blueprint
+                  </button>
+                )}
+                {solution.materials?.length > 0 && (
+                  <button
+                    onClick={loadBazaari}
+                    style={{
+                      flex: 1, minWidth: 140, padding: '10px 14px',
+                      background: '#1A4B84', color: '#fff',
+                      border: '2px solid #0E1B2D', cursor: 'pointer',
+                      fontFamily: 'JetBrains Mono, monospace', fontWeight: 700,
+                      fontSize: 11, textTransform: 'uppercase',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                      boxShadow: '2px 2px 0 #0E1B2D',
+                    }}
+                  >
+                    🛒 View in Bazaari
+                  </button>
+                )}
+              </div>
             </>
           ) : (
             <p style={{ fontSize: 13, color: '#828B99', fontFamily: 'JetBrains Mono, monospace' }}>
@@ -218,7 +275,9 @@ const Archive = () => {
 
               {/* Image */}
               <div className="aspect-square overflow-hidden border-2 border-stone-100 bg-stone-50">
-                {card.image ? (
+                {card.image_base64 ? (
+                  <img src={`data:image/png;base64,${card.image_base64}`} alt={card.title} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" />
+                ) : card.image ? (
                   <img src={card.image} alt={card.title} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-surface-container text-outline">

@@ -1,13 +1,15 @@
+import logging
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db import get_db
+from app.db import AsyncSessionLocal, get_db
 from app.models.archive_card import ArchiveCard
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/archive", tags=["archive"])
 
 
@@ -34,10 +36,35 @@ class ArchiveCardPatch(BaseModel):
     rotation: str | None = None
     bg_color: str | None = None
     starred: bool | None = None
+    image_base64: str | None = None
 
+
+# ── Background image generator ──────────────────────────────────────────────
+
+async def _generate_and_store_image(card_id: str, prompt: str):
+    from app.services.image_gen import generate_image_base64
+    try:
+        b64 = await generate_image_base64(prompt)
+        if not b64:
+            return
+        async with AsyncSessionLocal() as db:
+            card = await db.get(ArchiveCard, card_id)
+            if card:
+                card.image_base64 = b64
+                await db.commit()
+                logger.info("Archive image generated for card %s", card_id)
+    except Exception as exc:
+        logger.warning("Archive image generation failed for %s: %s", card_id, exc)
+
+
+# ── Endpoints ────────────────────────────────────────────────────────────────
 
 @router.post("")
-async def create_card(body: ArchiveCardIn, db: AsyncSession = Depends(get_db)):
+async def create_card(
+    body: ArchiveCardIn,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+):
     card = ArchiveCard(
         id=body.id or str(uuid.uuid4()),
         session_id=body.session_id,
@@ -54,6 +81,13 @@ async def create_card(body: ArchiveCardIn, db: AsyncSession = Depends(get_db)):
     db.add(card)
     await db.commit()
     await db.refresh(card)
+
+    img_prompt = (
+        f"Jugaad DIY solution: {body.title}. "
+        "Rustic hand-drawn schematic, Indian village style, blueprint paper background, no text"
+    )
+    background_tasks.add_task(_generate_and_store_image, card.id, img_prompt)
+
     return card
 
 
@@ -64,6 +98,23 @@ async def list_cards(session_id: str | None = None, db: AsyncSession = Depends(g
         q = q.where(ArchiveCard.session_id == session_id)
     result = await db.execute(q)
     return result.scalars().all()
+
+
+# Static route MUST come before /{card_id} so FastAPI doesn't treat "generate-images" as an id
+@router.get("/generate-images")
+async def generate_missing_images(background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
+    """Queue image generation for every archive card that doesn't have one yet."""
+    result = await db.execute(
+        select(ArchiveCard).where(ArchiveCard.image_base64 == "")
+    )
+    cards = result.scalars().all()
+    for card in cards:
+        prompt = (
+            f"Jugaad DIY solution: {card.title}. "
+            "Rustic hand-drawn schematic, Indian village style, blueprint paper background, no text"
+        )
+        background_tasks.add_task(_generate_and_store_image, card.id, prompt)
+    return {"queued": len(cards)}
 
 
 @router.get("/{card_id}")

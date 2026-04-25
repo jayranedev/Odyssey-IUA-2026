@@ -20,6 +20,12 @@ class Settings(BaseSettings):
     whatsapp_access_token: str = ""                  # permanent token from Meta App
     whatsapp_phone_number_id: str = ""               # from WhatsApp > API Setup in Meta dashboard
 
+    # Sarvam AI (Indian TTS)
+    sarvam_api_key: str = ""
+
+    # Gemini Imagen (cookie-based, NID value from browser)
+    gemini_cookie: str = ""
+
     environment: str = "development"
     cors_origins: str = "http://localhost:3000,http://localhost:5173"
 

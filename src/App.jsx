@@ -4,6 +4,7 @@ import Header from './components/Header';
 import BottomNav from './components/BottomNav';
 import Workshop from './pages/Workshop';
 import Blueprints from './pages/Blueprints';
+import Bazaari from './pages/Bazaari';
 import Archive from './pages/Archive';
 import Chat from './pages/Chat';
 
@@ -20,7 +21,7 @@ function App() {
         <Route path="/chat" element={<Chat />} />
         <Route path="/blueprints" element={<Blueprints />} />
         <Route path="/archive" element={<Archive />} />
-        <Route path="/bazaari" element={<div className="flex items-center justify-center min-h-[50vh] font-display text-4xl text-outline uppercase">Coming Soon</div>} />
+        <Route path="/bazaari" element={<Bazaari />} />
       </Routes>
 
       <BottomNav />

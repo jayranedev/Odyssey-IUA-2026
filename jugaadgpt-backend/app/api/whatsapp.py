@@ -11,9 +11,10 @@ import base64
 import json
 import logging
 import time
+from collections import OrderedDict
 
 import httpx
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request
 
 from app.config import settings
 from app.pipeline.extractor import extract_constraints
@@ -27,6 +28,22 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 GRAPH_API_URL = "https://graph.facebook.com/v20.0"
+
+# Dedup cache: wamid → timestamp. Bounded to 500 entries to prevent memory growth.
+_processed_ids: OrderedDict[str, float] = OrderedDict()
+_DEDUP_MAX = 500
+_DEDUP_TTL = 3600  # 1 hour
+
+
+def _already_processed(wamid: str) -> bool:
+    """Return True if this message ID was already handled (Meta retry)."""
+    now = time.time()
+    if wamid in _processed_ids:
+        return True
+    _processed_ids[wamid] = now
+    if len(_processed_ids) > _DEDUP_MAX:
+        _processed_ids.popitem(last=False)  # evict oldest
+    return False
 
 # ── Language detection ───────────────────────────────────────────────────────
 
@@ -159,19 +176,27 @@ async def verify_webhook(
 # ── Incoming message handler ─────────────────────────────────────────────────
 
 @router.post("/whatsapp/webhook")
-async def receive_message(request: Request):
+async def receive_message(request: Request, background_tasks: BackgroundTasks):
     body = await request.json()
+    logger.info("WhatsApp webhook payload: %s", str(body)[:600])
 
     for entry in body.get("entry", []):
         for change in entry.get("changes", []):
             value = change.get("value", {})
             messages = value.get("messages", [])
             phone_number_id = value.get("metadata", {}).get("phone_number_id", "")
+            logger.info("WhatsApp phone_number_id=%r messages_count=%d", phone_number_id, len(messages))
 
             for message in messages:
-                await _handle_message(message, phone_number_id)
+                wamid = message.get("id", "")
+                if _already_processed(wamid):
+                    logger.info("WhatsApp skipping duplicate wamid=%s", wamid)
+                    continue
+                # Schedule in background so we return 200 to Meta immediately.
+                # Meta retries if the response takes > ~20 s, which our pipeline exceeds.
+                background_tasks.add_task(_handle_message, message, phone_number_id)
 
-    # Always return 200 quickly — Meta retries if you don't
+    # Return 200 before pipeline runs — Meta won't retry
     return {"status": "ok"}
 
 
@@ -180,6 +205,7 @@ async def _handle_message(message: dict, phone_number_id: str):
 
     sender = message.get("from", "")
     msg_type = message.get("type", "text")
+    logger.info("Handling WA message from=%s type=%s phone_id=%s", sender, msg_type, phone_number_id)
 
     try:
         text_input = ""
@@ -237,9 +263,12 @@ async def _handle_message(message: dict, phone_number_id: str):
         # Merge with session and compute what's still missing
         merged_dict, all_messages, language = _update_session(sender, new_constraints.model_dump(), text_input, language)
         missing = _compute_missing(merged_dict)
+        logger.info("WA constraints missing=%s merged_budget=%s merged_location=%s",
+                    missing, merged_dict.get("budget_inr"), merged_dict.get("location_state"))
 
         if missing:
             question = _build_question(missing[:2], language)
+            logger.info("WA sending clarification to %s: %s", sender, question[:100])
             await _send_whatsapp_message(phone_number_id, sender, question)
             return
 
@@ -312,6 +341,14 @@ async def _download_meta_media(media_id: str) -> tuple[bytes, str]:
 
 
 async def _send_whatsapp_message(phone_number_id: str, to: str, text: str):
+    if not settings.whatsapp_access_token:
+        logger.error("WhatsApp send skipped — WHATSAPP_ACCESS_TOKEN not set")
+        return
+    if not phone_number_id:
+        logger.error("WhatsApp send skipped — phone_number_id is empty")
+        return
+
+    url = f"{GRAPH_API_URL}/{phone_number_id}/messages"
     headers = {
         "Authorization": f"Bearer {settings.whatsapp_access_token}",
         "Content-Type": "application/json",
@@ -322,14 +359,16 @@ async def _send_whatsapp_message(phone_number_id: str, to: str, text: str):
         "type": "text",
         "text": {"body": text[:4096]},
     }
-    async with httpx.AsyncClient() as client:
-        resp = await client.post(
-            f"{GRAPH_API_URL}/{phone_number_id}/messages",
-            headers=headers,
-            json=payload,
+    logger.info("WhatsApp send → %s to=%s len=%d", url, to, len(text))
+    async with httpx.AsyncClient(timeout=15) as client:
+        resp = await client.post(url, headers=headers, json=payload)
+
+    if resp.status_code >= 400:
+        logger.error(
+            "WhatsApp send FAILED %s: %s", resp.status_code, resp.text[:500]
         )
-        if resp.status_code >= 400:
-            logger.error("WhatsApp send failed: %s %s", resp.status_code, resp.text)
+    else:
+        logger.info("WhatsApp send OK %s → %s", resp.status_code, resp.text[:200])
 
 
 # ── Formatting ───────────────────────────────────────────────────────────────

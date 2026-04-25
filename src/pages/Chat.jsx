@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const WORKSHOP_KEY = 'jg_workshop_draft';
+const BAZAARI_KEY = 'jg_bazaari';
+const BLUEPRINT_KEY = 'jg_blueprint';
 const SESSIONS_KEY = 'jg_sessions_v2';
 const ROTATIONS = ['rotate-1', '-rotate-2', 'rotate-2', '-rotate-1'];
 const BG_COLORS = ['bg-white', 'bg-[#fdfcf0]', 'bg-yellow-50'];
@@ -47,14 +49,28 @@ async function fileToBase64(file) {
   });
 }
 
-// ── Text-to-speech (backend Groq TTS) ────────────────────────
+// ── Text-to-speech (Sarvam AI Bulbul — Indian voices) ────────
+
+function cleanForSpeech(raw) {
+  return raw
+    .replace(/\*+/g, '')
+    .replace(/#{1,6}\s*/g, '')
+    .replace(/•/g, ',')
+    .replace(/₹(\d+)/g, '$1 rupaye')
+    .replace(/(\d+)\./g, '$1 ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
 
 const SpeakButton = ({ text, voiceLang }) => {
   const [state, setState] = useState('idle'); // idle | loading | playing
   const audioRef = useRef(null);
 
   const stop = () => {
-    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
     setState('idle');
   };
 
@@ -63,35 +79,42 @@ const SpeakButton = ({ text, voiceLang }) => {
 
     setState('loading');
     try {
-      const lang = voiceLang === 'hi-IN' ? 'hi' : 'en';
-      const res = await fetch(`${API_BASE}/api/tts`, {
+      const cleaned = cleanForSpeech(text).slice(0, 1000);
+      const resp = await fetch(`${API_BASE}/api/tts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: text.slice(0, 1000), lang }),
+        body: JSON.stringify({ text: cleaned, lang: voiceLang || 'hi-IN' }),
       });
-      if (!res.ok) throw new Error('TTS failed');
-      const blob = await res.blob();
+
+      if (!resp.ok || resp.status === 204) {
+        setState('idle');
+        return;
+      }
+
+      const blob = await resp.blob();
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
       audioRef.current = audio;
-      audio.onended = () => { URL.revokeObjectURL(url); setState('idle'); };
-      audio.onerror = () => { URL.revokeObjectURL(url); setState('idle'); };
-      setState('playing');
-      audio.play();
+
+      audio.onplay = () => setState('playing');
+      audio.onended = () => { URL.revokeObjectURL(url); audioRef.current = null; setState('idle'); };
+      audio.onerror = () => { URL.revokeObjectURL(url); audioRef.current = null; setState('idle'); };
+
+      await audio.play();
     } catch {
       setState('idle');
     }
   };
 
-  const icon = state === 'loading' ? '⏳' : state === 'playing' ? '⏹' : '🔊';
-  const label = state === 'loading' ? 'Loading…' : state === 'playing' ? 'Stop' : 'Read aloud';
+  const icon = state === 'idle' ? '🔊' : state === 'loading' ? '⏳' : '⏹';
+  const label = state === 'playing' ? 'Stop reading' : 'Read aloud';
 
   return (
     <button
       onClick={toggle}
       title={label}
       style={{
-        background: 'none', border: 'none', cursor: state === 'loading' ? 'wait' : 'pointer',
+        background: 'none', border: 'none', cursor: state === 'loading' ? 'default' : 'pointer',
         fontSize: 15, opacity: state !== 'idle' ? 1 : 0.55, padding: '2px 4px',
         color: state === 'playing' ? 'var(--jg2-brick)' : 'var(--jg2-graphite)',
         transition: 'opacity 0.15s',
@@ -251,7 +274,7 @@ const StreamingBubble = ({ text, voiceLang }) => (
   </div>
 );
 
-const SolutionBubble = ({ solution, warnings, onSave, saved, voiceLang }) => {
+const SolutionBubble = ({ solution, warnings, onSave, saved, voiceLang, onBlueprint }) => {
   const speakText = [
     solution.title,
     solution.summary,
@@ -337,8 +360,8 @@ const SolutionBubble = ({ solution, warnings, onSave, saved, voiceLang }) => {
             </div>
           )}
 
-          {/* Save button */}
-          <div style={{ borderTop: '1px dashed var(--jg2-kraft)', paddingTop: 12 }}>
+          {/* Actions */}
+          <div style={{ borderTop: '1px dashed var(--jg2-kraft)', paddingTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button
               onClick={onSave}
               disabled={saved}
@@ -347,6 +370,34 @@ const SolutionBubble = ({ solution, warnings, onSave, saved, voiceLang }) => {
             >
               {saved ? '✓ Saved to Archive' : '⊞ Save to Archive'}
             </button>
+            {solution.materials?.length > 0 && (
+              <Link
+                to="/bazaari"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  background: '#1A4B84', color: '#fff',
+                  padding: '8px 14px', fontSize: 11, fontFamily: 'JetBrains Mono, monospace',
+                  fontWeight: 700, textTransform: 'uppercase', textDecoration: 'none',
+                  border: '1.5px solid #0E1B2D',
+                }}
+              >
+                🛒 View in Bazaari
+              </Link>
+            )}
+            {solution.build_steps?.length > 0 && (
+              <button
+                onClick={onBlueprint}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  background: '#fff', color: '#0E1B2D',
+                  padding: '8px 14px', fontSize: 11, fontFamily: 'JetBrains Mono, monospace',
+                  fontWeight: 700, textTransform: 'uppercase', cursor: 'pointer',
+                  border: '1.5px solid #0E1B2D',
+                }}
+              >
+                📐 Load Blueprint
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -489,13 +540,14 @@ const ImagePreview = ({ file, onRemove }) => (
 
 const Chat = () => {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [sessionId, setSessionId] = useState(() => getSessionId());
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [interimText, setInterimText] = useState('');
-  const [voiceLang, setVoiceLang] = useState('en-IN');
-  const [respLang, setRespLang] = useState('english'); // for backend: hinglish | english | hindi
+  const [voiceLang, setVoiceLang] = useState('hi-IN');
+  const [respLang, setRespLang] = useState('hinglish'); // for backend: hinglish | english | hindi
   const [showSessions, setShowSessions] = useState(false);
   const [savedIdx, setSavedIdx] = useState(new Set());
   const [toast, setToast] = useState('');
@@ -556,22 +608,38 @@ const Chat = () => {
 
   const toggleVoice = () => { if (listening) stopVoice(); else startVoice(voiceLang); };
 
-  // Language toggle: keeps voiceLang and respLang in sync
+  // Language toggle: value encodes "voiceLang:respLang"
   const handleLangChange = (e) => {
-    const val = e.target.value; // 'en-IN' or 'hi-IN'
-    setVoiceLang(val);
-    setRespLang(val === 'hi-IN' ? 'hindi' : 'english');
-    if (listening) { stopVoice(); setTimeout(() => startVoice(val), 100); }
+    const [vLang, rLang] = e.target.value.split(':');
+    setVoiceLang(vLang);
+    setRespLang(rLang);
+    if (listening) { stopVoice(); setTimeout(() => startVoice(vLang), 100); }
   };
 
-  // Save solution to archive
+  // Save solution to archive (generates an image first if backend supports it)
   const saveToArchive = useCallback(async (solution, msgIdx) => {
+    // Try to generate an illustration for the card
+    let imageDataUrl = '';
+    try {
+      const imgRes = await fetch(`${API_BASE}/api/generate-image`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: `Jugaad engineering solution: ${solution.title}. Indian rural DIY, hand-drawn technical schematic, grayscale illustration, no text labels`,
+        }),
+      });
+      if (imgRes.ok) {
+        const { base64 } = await imgRes.json();
+        if (base64) imageDataUrl = `data:image/png;base64,${base64}`;
+      }
+    } catch { /* image is optional, skip silently */ }
+
     const card = {
       session_id: sessionId,
       title: solution.title || 'Jugaad Solution',
       status: 'SUCCESS',
       annotation: `"${(solution.expected_outcome || solution.summary || '').slice(0, 100)}"`,
-      image: '',
+      image: imageDataUrl,
       rotation: ROTATIONS[Math.floor(Math.random() * ROTATIONS.length)],
       bg_color: BG_COLORS[Math.floor(Math.random() * BG_COLORS.length)],
       starred: false,
@@ -659,6 +727,15 @@ const Chat = () => {
                 });
               } else {
                 pushMsg({ type: 'solution', solution: parsed.solution, warnings: parsed.warnings });
+              }
+              // Save materials to localStorage so Bazaari page can read them
+              if (parsed.solution?.materials?.length) {
+                localStorage.setItem(BAZAARI_KEY, JSON.stringify({
+                  title: parsed.solution.title,
+                  materials: parsed.solution.materials,
+                  total_cost_inr: parsed.solution.total_cost_inr,
+                  savedAt: Date.now(),
+                }));
               }
             } catch { pushMsg({ type: 'error', text: 'Could not parse solution.' }); }
             pendingContext.current = [];
@@ -777,7 +854,7 @@ const Chat = () => {
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <select
-            value={voiceLang}
+            value={`${voiceLang}:${respLang}`}
             onChange={handleLangChange}
             style={{
               fontSize: 11, fontFamily: 'JetBrains Mono, monospace', padding: '5px 8px',
@@ -785,8 +862,9 @@ const Chat = () => {
               fontWeight: 700, textTransform: 'uppercase',
             }}
           >
-            <option value="en-IN">🇮🇳 English</option>
-            <option value="hi-IN">🇮🇳 हिन्दी</option>
+            <option value="en-IN:english">🇮🇳 English</option>
+            <option value="hi-IN:hinglish">🇮🇳 Hinglish</option>
+            <option value="hi-IN:hindi">🇮🇳 हिन्दी</option>
           </select>
           <button onClick={startNewChat} style={{
             padding: '6px 12px', fontSize: 11, fontFamily: 'JetBrains Mono, monospace', fontWeight: 700,
@@ -890,6 +968,10 @@ const Chat = () => {
               onSave={() => saveToArchive(msg.solution, i)}
               saved={savedIdx.has(i)}
               voiceLang={voiceLang}
+              onBlueprint={() => {
+                localStorage.setItem(BLUEPRINT_KEY, JSON.stringify(msg.solution));
+                navigate('/blueprints');
+              }}
             />
           );
           if (msg.type === 'clarification') return (

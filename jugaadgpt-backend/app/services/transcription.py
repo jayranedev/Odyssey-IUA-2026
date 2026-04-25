@@ -1,33 +1,79 @@
 """
-Audio transcription via Groq's Whisper API.
-Groq is free-tier, ~10x faster than real-time, and handles Hindi/multilingual.
-Returns plain text transcript.
+Audio transcription via Sarvam AI Saaras (primary) with Groq Whisper fallback.
+Saaras is purpose-built for Indian languages — Hindi, Hinglish, code-switching.
 """
 
 import io
+import logging
 
-from groq import AsyncGroq
+import httpx
 
 from app.config import settings
 
-_client: AsyncGroq | None = None
+logger = logging.getLogger(__name__)
+
+# Groq fallback (still used by /api/tts Groq path if needed)
+_groq_client = None
 
 
-def get_groq_client() -> AsyncGroq:
-    global _client
-    if _client is None:
-        _client = AsyncGroq(api_key=settings.groq_api_key)
-    return _client
+def get_groq_client():
+    global _groq_client
+    if _groq_client is None:
+        from groq import AsyncGroq
+        _groq_client = AsyncGroq(api_key=settings.groq_api_key)
+    return _groq_client
 
 
 async def transcribe_audio(audio_bytes: bytes, mime_type: str = "audio/ogg") -> str:
     """
     Transcribe audio bytes to text.
-    mime_type examples: audio/ogg, audio/mpeg, audio/wav, audio/webm
-    Groq Whisper supports: mp3, mp4, mpeg, mpga, m4a, wav, webm, ogg
+    Uses Sarvam Saaras if key is configured, otherwise falls back to Groq Whisper.
     """
-    client = get_groq_client()
+    if settings.sarvam_api_key:
+        return await _transcribe_sarvam(audio_bytes, mime_type)
+    return await _transcribe_groq(audio_bytes, mime_type)
 
+
+async def _transcribe_sarvam(audio_bytes: bytes, mime_type: str) -> str:
+    ext_map = {
+        "audio/ogg": "ogg",
+        "audio/mpeg": "mp3",
+        "audio/mp4": "mp4",
+        "audio/wav": "wav",
+        "audio/webm": "webm",
+        "audio/m4a": "m4a",
+        "audio/opus": "ogg",
+    }
+    ext = ext_map.get(mime_type, "wav")
+    filename = f"audio.{ext}"
+
+    async with httpx.AsyncClient(timeout=30) as client:
+        resp = await client.post(
+            "https://api.sarvam.ai/speech-to-text",
+            headers={"api-subscription-key": settings.sarvam_api_key},
+            files={"file": (filename, io.BytesIO(audio_bytes), mime_type)},
+            data={
+                "model": "saaras:v3",
+                "mode": "transcribe",  # auto-detects language incl. Hindi/Hinglish
+            },
+        )
+
+    if resp.status_code != 200:
+        logger.warning("Sarvam STT failed %s: %s — falling back to Groq", resp.status_code, resp.text[:200])
+        return await _transcribe_groq(audio_bytes, mime_type)
+
+    data = resp.json()
+    transcript = data.get("transcript", "")
+    if not transcript.strip():
+        logger.warning("Sarvam STT returned empty transcript, falling back to Groq")
+        return await _transcribe_groq(audio_bytes, mime_type)
+
+    logger.info("Sarvam STT transcript: %s", transcript[:100])
+    return transcript
+
+
+async def _transcribe_groq(audio_bytes: bytes, mime_type: str) -> str:
+    client = get_groq_client()
     ext_map = {
         "audio/ogg": "ogg",
         "audio/mpeg": "mp3",
@@ -37,14 +83,10 @@ async def transcribe_audio(audio_bytes: bytes, mime_type: str = "audio/ogg") -> 
         "audio/m4a": "m4a",
     }
     ext = ext_map.get(mime_type, "ogg")
-    filename = f"audio.{ext}"
-
     transcription = await client.audio.transcriptions.create(
-        file=(filename, io.BytesIO(audio_bytes), mime_type),
+        file=(f"audio.{ext}", io.BytesIO(audio_bytes), mime_type),
         model="whisper-large-v3-turbo",
-        language="hi",       # Hindi first; Whisper auto-detects if wrong
+        language="hi",
         response_format="text",
     )
-
-    # Groq returns str directly when response_format="text"
     return transcription if isinstance(transcription, str) else transcription.text

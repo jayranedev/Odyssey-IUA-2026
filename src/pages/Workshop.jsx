@@ -2,7 +2,87 @@ import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const WORKSHOP_KEY = 'jg_workshop_draft';
+const SESSIONS_KEY = 'jg_sessions_v2';
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+// ── Conversations drawer ──────────────────────────────────────
+const ConversationsDrawer = ({ open, onClose, onResume }) => {
+  let sessions = [];
+  try { sessions = JSON.parse(localStorage.getItem(SESSIONS_KEY) || '[]'); } catch { }
+
+  return (
+    <>
+      {/* Backdrop */}
+      {open && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 100 }}
+          onClick={onClose}
+        />
+      )}
+
+      {/* Drawer */}
+      <div style={{
+        position: 'fixed', top: 0, right: 0, bottom: 0, width: 320,
+        background: '#F8F5EE', borderLeft: '3px solid #0E1B2D',
+        boxShadow: '-4px 0 0 #0E1B2D',
+        zIndex: 101, transform: open ? 'translateX(0)' : 'translateX(100%)',
+        transition: 'transform 0.22s cubic-bezier(0.4,0,0.2,1)',
+        display: 'flex', flexDirection: 'column',
+        backgroundImage: 'url("https://www.transparenttextures.com/patterns/graph-paper.png")',
+      }}>
+        {/* Header */}
+        <div style={{
+          padding: '16px 18px 12px',
+          borderBottom: '2px solid #0E1B2D',
+          background: '#1A4B84',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <div style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 14, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#FFD700' }}>
+            Past Conversations
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: '#fff', lineHeight: 1 }}>
+            ✕
+          </button>
+        </div>
+
+        {/* List */}
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          {sessions.length === 0 ? (
+            <div style={{ padding: 24, fontSize: 13, color: '#828B99', fontFamily: 'JetBrains Mono, monospace', textAlign: 'center', marginTop: 32 }}>
+              No conversations yet.<br />Start one from Workshop!
+            </div>
+          ) : sessions.map((s, i) => (
+            <button
+              key={s.id}
+              onClick={() => onResume(s.id)}
+              style={{
+                width: '100%', padding: '14px 18px', textAlign: 'left',
+                background: i % 2 === 0 ? 'rgba(255,255,255,0.6)' : 'transparent',
+                border: 'none', borderBottom: '1px dashed rgba(14,27,45,0.15)',
+                cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 4,
+              }}
+            >
+              <div style={{ fontWeight: 700, fontSize: 13, color: '#0E1B2D', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {s.title || 'Untitled conversation'}
+              </div>
+              <div style={{ fontSize: 10, fontFamily: 'JetBrains Mono, monospace', color: '#828B99', textTransform: 'uppercase' }}>
+                {new Date(s.updatedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+              </div>
+              <div style={{ fontSize: 10, color: '#1A4B84', fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, marginTop: 2 }}>
+                Resume →
+              </div>
+            </button>
+          ))}
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: '12px 18px', borderTop: '1px dashed #C1A87D', fontSize: 10, color: '#828B99', fontFamily: 'JetBrains Mono, monospace', textAlign: 'center' }}>
+          {sessions.length} conversation{sessions.length !== 1 ? 's' : ''} stored locally
+        </div>
+      </div>
+    </>
+  );
+};
 
 // Resize + encode image to base64 so it fits in localStorage and the API
 async function compressToBase64(file, maxWidth = 1024, quality = 0.82) {
@@ -34,7 +114,14 @@ const Workshop = () => {
   const [generating, setGenerating] = useState(false);
   const [scanning, setScanning] = useState(false);        // OCR in progress
   const [scanError, setScanError] = useState('');
+  const [showConversations, setShowConversations] = useState(false);
   const scanInputRef = useRef(null);
+
+  const handleResume = (sessionId) => {
+    localStorage.setItem('jg_session_id', sessionId);
+    setShowConversations(false);
+    navigate('/chat');
+  };
 
   const handleImageChange = (file) => {
     if (!file) return;
@@ -99,13 +186,28 @@ const Workshop = () => {
 
   return (
     <main className="max-w-4xl mx-auto px-margin mt-8 graph-paper min-h-screen border-x-2 border-outline-variant shadow-inner py-10 mb-24">
-      <div className="mb-10 px-4">
-        <h2 className="font-display text-4xl text-primary uppercase border-b-4 border-primary inline-block mb-2">
-          The Workshop
-        </h2>
-        <p className="font-annotation text-secondary text-lg">
-          Log your problem. Use what you have. Build what you need.
-        </p>
+      <ConversationsDrawer
+        open={showConversations}
+        onClose={() => setShowConversations(false)}
+        onResume={handleResume}
+      />
+
+      <div className="mb-10 px-4 flex items-start justify-between gap-4">
+        <div>
+          <h2 className="font-display text-4xl text-primary uppercase border-b-4 border-primary inline-block mb-2">
+            The Workshop
+          </h2>
+          <p className="font-annotation text-secondary text-lg">
+            Log your problem. Use what you have. Build what you need.
+          </p>
+        </div>
+        <button
+          onClick={() => setShowConversations(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-white border-2 border-on-background font-display text-xs uppercase tracking-wider shadow-jugaad-black/20 active:translate-x-0.5 active:translate-y-0.5 transition-transform shrink-0 mt-1"
+        >
+          <span className="material-symbols-outlined text-base text-primary">forum</span>
+          Conversations
+        </button>
       </div>
 
       <div className="space-y-6">

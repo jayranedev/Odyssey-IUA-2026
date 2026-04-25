@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, File, UploadFile
 from fastapi.responses import Response, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.db import get_db
 from app.pipeline.extractor import extract_constraints
 from app.pipeline.generator import generate_solution, generate_solution_stream
@@ -211,24 +212,68 @@ async def transcribe(audio: UploadFile = File(...)):
 @router.post("/tts")
 async def text_to_speech(body: dict):
     """
-    Web voice reply: text → audio (mp3 bytes).
-    Frontend flow: solution arrives → POST /api/tts → play audio.
-    Uses Groq's TTS API (same client as Whisper).
-
-    Body: {"text": "...", "lang": "hi"}  (lang is a hint, not enforced)
+    Web voice reply: text → audio (wav bytes) via Sarvam AI Bulbul.
+    Body: {"text": "...", "lang": "hi-IN"}
+    Always returns a valid response so CORS headers are preserved.
     """
-    from app.services.transcription import get_groq_client
-    text = body.get("text", "")[:1000]  # cap length
+    import base64
+    import logging as _logging
+    import httpx as _httpx
 
-    client = get_groq_client()
-    response = await client.audio.speech.create(
-        model="playai-tts",
-        voice="Arya-PlayAI",   # Hindi-accented Indian female voice
-        input=text,
-        response_format="mp3",
-    )
-    audio_bytes = response.read()
-    return Response(content=audio_bytes, media_type="audio/mpeg")
+    _log = _logging.getLogger(__name__)
+
+    text = (body.get("text") or "").strip()
+    lang = body.get("lang") or "hi-IN"
+    if not text or not settings.sarvam_api_key:
+        return Response(status_code=204)
+
+    lang_map = {
+        "hi-IN": "hi-IN", "hinglish": "hi-IN",
+        "en-IN": "en-IN", "en-US": "en-IN", "en-GB": "en-IN",
+    }
+    sarvam_lang = lang_map.get(lang, "hi-IN")
+
+    try:
+        payload = {
+            "text": text[:2500],
+            "target_language_code": sarvam_lang,
+            "speaker": "manan",
+            "model": "bulbul:v3",
+            "pace": 0.9,
+            "speech_sample_rate": 24000,
+        }
+        async with _httpx.AsyncClient(timeout=20) as client:
+            resp = await client.post(
+                "https://api.sarvam.ai/text-to-speech",
+                json=payload,
+                headers={"api-subscription-key": settings.sarvam_api_key},
+            )
+            if resp.status_code != 200:
+                _log.warning("Sarvam TTS 400 body: %s", resp.text[:500])
+                resp.raise_for_status()
+
+        audio_b64 = resp.json()["audios"][0]
+        audio_bytes = base64.b64decode(audio_b64)
+        return Response(content=audio_bytes, media_type="audio/wav")
+
+    except Exception as exc:
+        _log.warning("Sarvam TTS failed: %s", exc)
+        return Response(status_code=204)
+
+
+@router.post("/generate-image")
+async def generate_image(body: dict):
+    """
+    Prompt → base64 PNG via Gemini Imagen.
+    Body: {"prompt": "..."}
+    Returns: {"base64": "<base64 string>" | null}
+    """
+    prompt = (body.get("prompt") or "").strip()
+    if not prompt:
+        return {"base64": None}
+    from app.services.image_gen import generate_image_base64
+    b64 = await generate_image_base64(prompt)
+    return {"base64": b64}
 
 
 @router.post("/ocr")

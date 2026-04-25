@@ -21,4 +21,5 @@ class ArchiveCard(Base):
     bg_color: Mapped[str] = mapped_column(String(100), default="bg-white")
     starred: Mapped[bool] = mapped_column(Boolean, default=False)
     solution_json: Mapped[str] = mapped_column(Text, default="{}")
+    image_base64: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
