@@ -37,8 +37,6 @@ def _compute_missing(c) -> list[str]:
     """Determine truly critical missing constraints. Never requires optional fields."""
     d = c if isinstance(c, dict) else c.model_dump()
     missing = []
-    if d.get("budget_inr") is None:
-        missing.append("budget_inr")
     if not d.get("location_state") and not d.get("climate"):
         missing.append("location_state")
     return missing
@@ -65,6 +63,10 @@ async def query(request: QueryRequest, db: AsyncSession = Depends(get_db)):
             # Auto-fill season from current date if not in message
             if not constraints.season or constraints.season == "unknown":
                 constraints.season = _auto_season()
+
+            # Default missing budget so search-style queries can still run.
+            if constraints.budget_inr is None:
+                constraints.budget_inr = 500
 
             # Auto-fill location from browser geolocation if provided and not in message
             if request.location_state and not constraints.location_state:

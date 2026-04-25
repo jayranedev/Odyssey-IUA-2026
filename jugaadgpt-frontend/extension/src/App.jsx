@@ -52,8 +52,38 @@ function truncateText(value, maxLength) {
   return `${value.slice(0, Math.max(0, maxLength - 3))}...`;
 }
 
+function detectReplyLanguage(text) {
+  const source = (text || '').trim();
+  if (!source) return 'english';
+  if (/[\u0900-\u097F]/.test(source)) return 'hindi';
+
+  const romanHindiHints = [
+    'kaise', 'kya', 'mera', 'mere', 'meri', 'hai', 'nahi', 'karna', 'karu', 'karoon',
+    'jugaad', 'sahi', 'bina', 'paisa', 'thik', 'theek', 'krna', 'ka', 'ki',
+    'mein', 'me', 'wala', 'wali', 'kyun', 'kaun', 'kitna', 'kaunsa',
+  ];
+  const lowered = source.toLowerCase();
+  const hintMatches = romanHindiHints.filter((hint) => new RegExp(`\\b${hint}\\b`, 'i').test(lowered)).length;
+  if (hintMatches >= 2) return 'english';
+  return 'english';
+}
+
 function getProviderEntries(config) {
   return Object.entries(config.providers);
+}
+
+function extractSearchQuery(pageContext) {
+  try {
+    const url = new URL(pageContext?.url || '');
+    const queryKeys = ['q', 'p', 'text', 'wd', 'query', 'search_query'];
+    for (const key of queryKeys) {
+      const value = url.searchParams.get(key)?.trim();
+      if (value) return value;
+    }
+  } catch {
+    return '';
+  }
+  return '';
 }
 
 function buildMessage(prompt, pageContext) {
@@ -100,88 +130,31 @@ async function getPageContext() {
 }
 
 async function pingBackend(url) {
-  const response = await fetch(`${url.replace(/\/$/, '')}/health`);
-  if (!response.ok) throw new Error(`Health check failed: ${response.status}`);
-  return response.json();
-}
-
-async function queryBackend(backendUrl, message) {
-  const response = await fetch(`${backendUrl.replace(/\/$/, '')}/api/query`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      session_id: `extension-${Date.now()}`,
-      message,
-      channel: 'web',
-      lang: 'hinglish',
-    }),
+  const response = await chrome.runtime.sendMessage({
+    type: 'JUGAADGPT_PING_BACKEND',
+    backendUrl: url,
   });
 
-  if (!response.ok) {
-    let detail = '';
-    try {
-      detail = await response.text();
-    } catch {
-      detail = '';
-    }
-    throw new Error(`Backend request failed: ${response.status}${detail ? ` ${detail}` : ''}`);
+  if (!response?.ok) {
+    throw new Error(response?.error || 'Health check failed.');
   }
 
-  const reader = response.body?.getReader();
-  if (!reader) {
-    throw new Error('Streaming response unavailable');
+  return response.result;
+}
+
+async function queryBackend(backendUrl, message, lang) {
+  const response = await chrome.runtime.sendMessage({
+    type: 'JUGAADGPT_QUERY_BACKEND',
+    backendUrl,
+    payload: message,
+    sessionId: `extension-${Date.now()}`,
+    lang,
+  });
+
+  if (!response?.ok) {
+    throw new Error(response?.error || 'Backend request failed.');
   }
-
-  const decoder = new TextDecoder();
-  let buffer = '';
-  let tokens = '';
-  let solution = null;
-  let clarification = null;
-
-  const parseEvents = (rawChunk) => {
-    const blocks = rawChunk.split('\n\n');
-    for (const block of blocks) {
-      let eventName = '';
-      let eventData = '';
-      for (const line of block.split('\n')) {
-        if (line.startsWith('event: ')) eventName = line.slice(7).trim();
-        if (line.startsWith('data: ')) eventData = line.slice(6).trim();
-      }
-
-      if (!eventName || !eventData) continue;
-      if (eventName === 'token') tokens += eventData;
-      if (eventName === 'solution') {
-        try {
-          solution = JSON.parse(eventData);
-        } catch {
-          solution = null;
-        }
-      }
-      if (eventName === 'clarification') {
-        try {
-          clarification = JSON.parse(eventData);
-        } catch {
-          clarification = null;
-        }
-      }
-    }
-  };
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const boundary = buffer.lastIndexOf('\n\n');
-    if (boundary !== -1) {
-      parseEvents(buffer.slice(0, boundary + 2));
-      buffer = buffer.slice(boundary + 2);
-    }
-  }
-
-  if (buffer.trim()) parseEvents(buffer);
-  if (clarification?.question) return `Question: ${clarification.question}`;
-  if (solution) return JSON.stringify(solution, null, 2);
-  return tokens || 'No response from backend.';
+  return response.result;
 }
 
 function Header({ settingsOpen, onToggleSettings, keyCount }) {
@@ -322,10 +295,14 @@ export default function ExtensionPopup() {
       const savedConfig = await storage.get('jugaadgptConfig');
       const nextConfig = savedConfig || DEFAULT_CONFIG;
       const context = await getPageContext();
+      const detectedSearchQuery = extractSearchQuery(context);
 
       if (!active) return;
       setConfig(nextConfig);
       setPageContext(context);
+      if (detectedSearchQuery) {
+        setPrompt(`Help with this search query in a practical JugaadGPT way: ${detectedSearchQuery}`);
+      }
       setStatus(context ? 'Page context loaded.' : 'Extension configured. Open a normal web page to capture context.');
     }
 
@@ -385,14 +362,16 @@ export default function ExtensionPopup() {
 
   const runQuery = async () => {
     setBusy(true);
-    setResponseText('');
+    setResponseText('Working...');
     setStatus('Sending page context to backend...');
     try {
       const message = buildMessage(prompt, pageContext || {});
-      const result = await queryBackend(config.backendUrl, message);
+      const lang = detectReplyLanguage(prompt || extractSearchQuery(pageContext) || '');
+      const result = await queryBackend(config.backendUrl, message, lang);
       setResponseText(result);
       setStatus('Response received.');
     } catch (error) {
+      setResponseText(error.message || 'Request failed.');
       setStatus(error.message);
     } finally {
       setBusy(false);
