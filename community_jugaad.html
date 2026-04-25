@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-background": "#1b1c19",
+                    "inverse-surface": "#30312e",
+                    "on-primary": "#ffffff",
+                    "on-error-container": "#93000a",
+                    "inverse-primary": "#a6c8ff",
+                    "surface": "#fbf9f4",
+                    "secondary-fixed": "#ffdbc9",
+                    "primary-fixed": "#d5e3ff",
+                    "surface-container-low": "#f5f3ee",
+                    "on-tertiary-fixed": "#221b00",
+                    "surface-container": "#f0eee9",
+                    "tertiary": "#705d00",
+                    "outline": "#737781",
+                    "primary": "#003466",
+                    "on-secondary-fixed": "#321200",
+                    "on-primary-fixed": "#001c3b",
+                    "on-secondary-container": "#783603",
+                    "on-error": "#ffffff",
+                    "primary-fixed-dim": "#a6c8ff",
+                    "secondary-fixed-dim": "#ffb68c",
+                    "surface-dim": "#dbdad5",
+                    "surface-container-high": "#eae8e3",
+                    "error-container": "#ffdad6",
+                    "on-surface": "#1b1c19",
+                    "surface-bright": "#fbf9f4",
+                    "surface-container-highest": "#e4e2dd",
+                    "primary-container": "#1a4b84",
+                    "surface-tint": "#335f99",
+                    "surface-container-lowest": "#ffffff",
+                    "on-tertiary-container": "#4c3e00",
+                    "on-primary-container": "#93bcfc",
+                    "on-tertiary-fixed-variant": "#544600",
+                    "inverse-on-surface": "#f2f1ec",
+                    "on-secondary-fixed-variant": "#753401",
+                    "on-surface-variant": "#424750",
+                    "tertiary-container": "#c9a900",
+                    "error": "#ba1a1a",
+                    "background": "#fbf9f4",
+                    "outline-variant": "#c3c6d1",
+                    "tertiary-fixed": "#ffe16d",
+                    "on-secondary": "#ffffff",
+                    "surface-variant": "#e4e2dd",
+                    "on-tertiary": "#ffffff",
+                    "secondary": "#934b19",
+                    "on-primary-fixed-variant": "#144780",
+                    "tertiary-fixed-dim": "#e9c400",
+                    "secondary-container": "#ffa26a"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "lg": "24px",
+                    "xl": "40px",
+                    "margin": "20px",
+                    "base": "4px",
+                    "gutter": "16px",
+                    "sm": "8px",
+                    "xs": "4px",
+                    "md": "16px"
+            },
+            "fontFamily": {
+                    "display": ["Inter"],
+                    "data-tabular": ["Inter"],
+                    "headline-md": ["Inter"],
+                    "annotation": ["cursive"],
+                    "body-md": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "headline-lg": ["Inter"]
+            },
+            "fontSize": {
+                    "display": ["40px", {"lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "800"}],
+                    "data-tabular": ["14px", {"lineHeight": "1.4", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "headline-md": ["22px", {"lineHeight": "1.2", "fontWeight": "700"}],
+                    "annotation": ["16px", {"lineHeight": "1.2", "fontWeight": "400"}],
+                    "body-md": ["16px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                    "body-lg": ["18px", {"lineHeight": "1.5", "fontWeight": "500"}],
+                    "headline-lg": ["28px", {"lineHeight": "1.2", "fontWeight": "700"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .tape-corner-tl::before {
+            content: '';
+            position: absolute;
+            top: -10px;
+            left: -10px;
+            width: 40px;
+            height: 15px;
+            background: #cbd5e1;
+            opacity: 0.8;
+            transform: rotate(-35deg);
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+        .tape-corner-tr::after {
+            content: '';
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            width: 40px;
+            height: 15px;
+            background: #1A4B84;
+            opacity: 0.6;
+            transform: rotate(35deg);
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+        .corkboard {
+            background-color: #d2b48c;
+            background-image: radial-gradient(#bc9c73 10%, transparent 10%);
+            background-size: 8px 8px;
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body-md min-h-screen pb-32">
+<!-- TopAppBar -->
+<header class="bg-[#f4f1ea] dark:bg-[#1a1a1a] flex justify-between items-center w-full px-6 py-4 bg-[url('https://www.transparenttextures.com/patterns/graph-paper.png')] fixed top-0 z-50 border-b-4 border-double border-[#1A4B84] shadow-[4px_4px_0px_0px_rgba(26,75,132,1)]">
+<div class="text-2xl font-black text-[#1A4B84] dark:text-[#4A90E2] tracking-widest font-['Inter'] font-black uppercase tracking-tighter">
+            JUGAAD GPT
+        </div>
+<div class="flex items-center gap-4">
+<button class="bg-tertiary-container text-on-tertiary-fixed-variant px-4 py-2 font-bold uppercase border-2 border-primary active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all shadow-[4px_4px_0px_0px_rgba(26,75,132,1)] hover:bg-[#1A4B84] hover:text-white">
+                NEW PROJECT
+            </button>
+<span class="material-symbols-outlined text-[#1A4B84] text-3xl cursor-pointer">settings</span>
+</div>
+</header>
+<!-- Main Content: The Archive -->
+<main class="mt-24 px-margin corkboard min-h-screen py-10">
+<div class="max-w-6xl mx-auto">
+<div class="mb-12 text-center">
+<h1 class="font-display text-display inline-block bg-white px-6 py-2 border-4 border-primary shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] -rotate-1">
+                    THE ARCHIVE
+                </h1>
+<p class="font-annotation text-annotation mt-4 text-primary font-bold">
+                    // A trophy wall of resourcefulness and rural grit
+                </p>
+</div>
+<!-- Bento/Gallery Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
+<!-- Project 1: Solar Dryer -->
+<div class="relative bg-white p-4 shadow-xl border-b-[12px] border-stone-200 rotate-1 hover:rotate-0 transition-transform cursor-pointer group">
+<div class="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-4 w-24 h-8 bg-zinc-300 opacity-80 shadow-sm border border-zinc-400 rotate-2"></div>
+<div class="aspect-square overflow-hidden border-2 border-stone-100 bg-stone-50">
+<img class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" data-alt="handcrafted solar dryer made of wood and recycled plastic sheets sitting in a dusty rural field" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDwgUTUsEKc1sKf0MM956pGK5Zr5luq8cr1n9e1Mudg4xcHpcTzkVBq2aZW93HSg7Blmtpfy5uvDjMFzO2ykKgA1ACwkqyYwqAIq-C5g9frVawRg9u4czfBVcjAg8zn1rxPGgCR68VaA_7QYKO5vhgtMxLi1RqPY9wb042ITrqkpSFnD74KdvHDrIVZRSbFhLKcW5hFs8exSMlrVSgFMW3QTKOyHZ0cDMIBAcQe5kpEQyHTRSVS5WPDd65m4ONz_KZ7OrMz-rvgSOI"/>
+</div>
+<div class="mt-6 space-y-2">
+<h3 class="font-headline-md text-headline-md uppercase text-primary border-b-2 border-dashed border-primary pb-1">Low-cost Solar Dryer</h3>
+<p class="font-data-tabular text-data-tabular text-stone-600">ID: ARCH-2023-01</p>
+<div class="flex justify-between items-center pt-2">
+<span class="bg-primary text-white text-[10px] px-2 py-1 font-bold">SUCCESS</span>
+<span class="font-annotation text-sm text-secondary">"Dries chillies in 40% less time"</span>
+</div>
+</div>
+</div>
+<!-- Project 2: Grain De-husker -->
+<div class="relative bg-[#fdfcf0] p-4 shadow-xl border-b-[12px] border-stone-200 -rotate-2 hover:rotate-0 transition-transform cursor-pointer group">
+<div class="tape-corner-tr"></div>
+<div class="aspect-square overflow-hidden border-2 border-stone-100 bg-stone-50">
+<img class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" data-alt="mechanical grain processing tool made from repurposed bicycle parts and welded scrap metal in a workshop" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB9oi6hs7Pep86C9Q5FCAaewmqEVk_moEqg2KnMVtWKkkJn3OxCVpvutTcg1Q8koKst-uKXO8tH-4428j0RRL-UkRj2-IvcELR66ECn-7ng89HCU0THpg43mczVehSQp3tGBthkb0Ug0x5X1rRuzWwarFQYdsPVVf-JPfl0YL0_pL63B5smBnEM8p32F0KQ66_h1bAbfLvHBc03ZCWZPXDNVV37vcQEOae80MpZqJBI45vfC7s7a3ztehPczUY2jJMMyaKoQQrsRJM"/>
+</div>
+<div class="mt-6 space-y-2">
+<h3 class="font-headline-md text-headline-md uppercase text-primary border-b-2 border-dashed border-primary pb-1">Manual Grain De-husker</h3>
+<p class="font-data-tabular text-data-tabular text-stone-600">ID: ARCH-2022-09</p>
+<div class="flex justify-between items-center pt-2">
+<span class="bg-secondary text-white text-[10px] px-2 py-1 font-bold">V2 OPTIMIZED</span>
+<span class="font-annotation text-sm text-secondary">"Welded bicycle parts work best"</span>
+</div>
+</div>
+</div>
+<!-- Project 3: Water Pump -->
+<div class="relative bg-white p-4 shadow-xl border-b-[12px] border-stone-200 rotate-3 hover:rotate-0 transition-transform cursor-pointer group">
+<div class="absolute -top-4 -right-4 w-12 h-12 bg-yellow-400 border-4 border-black flex items-center justify-center rounded-full font-black text-xl z-10">★</div>
+<div class="aspect-square overflow-hidden border-2 border-stone-100 bg-stone-50">
+<img class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" data-alt="improvised water irrigation pump using a small motor and pvc pipes in a muddy garden setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD5dYPA23PwqzLirz_-3yJyjTt77uRCb2ntlftaDU5SQp27RKLJyh7oJg04K4dK6--zNVEa5sKilfXj2CiJr_hY_C49oe66u_ZUHFfgZfiJyEr_YFNPl-sThjRgYxifK4Caa4-0WrRNHN-SEPEO7aAqnunWpO4Xehf_JJuy4mJMLX93AExsTNso3a5PruHruJUsKr7QQ_l1gdPHxe7vOzX8Xh1TPc_vJ8iZ3XAzjcL6pLRzrs15njAKx0JzYvX9KO8NVFrsvHfWALY"/>
+</div>
+<div class="mt-6 space-y-2">
+<h3 class="font-headline-md text-headline-md uppercase text-primary border-b-2 border-dashed border-primary pb-1">Pedal-Power Pump</h3>
+<p class="font-data-tabular text-data-tabular text-stone-600">ID: ARCH-2023-04</p>
+<div class="flex justify-between items-center pt-2">
+<span class="bg-primary text-white text-[10px] px-2 py-1 font-bold">COMMUNITY FAV</span>
+<span class="font-annotation text-sm text-secondary">"No electricity needed"</span>
+</div>
+</div>
+</div>
+<!-- Project 4: Brick Maker -->
+<div class="relative bg-[#fafafa] p-4 shadow-xl border-b-[12px] border-stone-200 -rotate-1 hover:rotate-0 transition-transform cursor-pointer group">
+<div class="tape-corner-tl"></div>
+<div class="aspect-square overflow-hidden border-2 border-stone-100 bg-stone-50">
+<img class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" data-alt="manual earth brick press machine sitting on dry cracked ground with finished sun-dried bricks nearby" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDCsBjgbMR8sZUPs4tIKHlH2j-UAeLRMq9hkmTGZVNxZmAMLTbIZeplPOQVZAt6at27zFvWb6TNPWCKY8ExCTlmff1-mhX4It_vgPXMFV_JmReHGyoBaYmQF_V1PHp-Q3e5hoYj-bW0B3VJe5kihK8WPsSbz1wFVbzUGwPJ6FFOAZ1jPo6-CbpY6sPE1s0NL4sm1uteER0bm6bPPVBC_X3JUC5YfrypKfvr6DAzE0W1bBSWmeoDkDgcup9D4vSqkloCGUMNI8_HzWQ"/>
+</div>
+<div class="mt-6 space-y-2">
+<h3 class="font-headline-md text-headline-md uppercase text-primary border-b-2 border-dashed border-primary pb-1">Compressed Earth Press</h3>
+<p class="font-data-tabular text-data-tabular text-stone-600">ID: ARCH-2021-12</p>
+<div class="flex justify-between items-center pt-2">
+<span class="bg-stone-500 text-white text-[10px] px-2 py-1 font-bold">ARCHIVED</span>
+<span class="font-annotation text-sm text-secondary">"Heavy but indestructible"</span>
+</div>
+</div>
+</div>
+<!-- Sketch Entry -->
+<div class="relative bg-[url('https://www.transparenttextures.com/patterns/graph-paper.png')] bg-white p-6 shadow-xl border-2 border-dashed border-stone-400 rotate-2 hover:rotate-0 transition-transform cursor-pointer flex flex-col justify-center items-center text-center">
+<div class="absolute top-2 right-2 flex gap-1">
+<div class="w-2 h-2 bg-blue-500 rounded-full"></div>
+<div class="w-2 h-2 bg-red-500 rounded-full"></div>
+</div>
+<span class="material-symbols-outlined text-stone-300 text-6xl mb-4">edit_note</span>
+<h3 class="font-headline-md text-headline-md uppercase text-stone-400">Draft: Bio-gas Stove</h3>
+<p class="font-annotation text-sm text-stone-400 mt-2">Incomplete documentation...</p>
+<div class="mt-4 px-4 py-1 border border-stone-300 text-stone-400 font-bold text-xs uppercase">Resume Blueprint</div>
+</div>
+<!-- Add New Placeholder -->
+<div class="relative flex flex-col items-center justify-center p-8 border-4 border-dashed border-primary/30 rounded-xl hover:bg-white/20 transition-colors cursor-pointer group">
+<div class="w-16 h-16 bg-primary text-white rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-4xl">add</span>
+</div>
+<p class="mt-4 font-headline-md text-primary uppercase opacity-50">Upload New Legacy</p>
+</div>
+</div>
+<!-- Stats Taped to bottom -->
+<div class="mt-20 flex justify-center">
+<div class="bg-white p-6 border-2 border-black shadow-[8px_8px_0px_0px_rgba(255,215,0,1)] relative max-w-md w-full">
+<div class="absolute -top-3 -left-6 w-20 h-6 bg-zinc-300 -rotate-12 border border-zinc-400 opacity-80"></div>
+<div class="absolute -top-3 -right-6 w-20 h-6 bg-zinc-300 rotate-12 border border-zinc-400 opacity-80"></div>
+<h4 class="font-headline-md text-center uppercase border-b-2 border-black mb-4">Archive Ledger</h4>
+<div class="grid grid-cols-2 gap-4">
+<div class="text-center">
+<p class="text-3xl font-black text-primary">12</p>
+<p class="text-xs font-bold uppercase text-stone-500">Live Projects</p>
+</div>
+<div class="text-center">
+<p class="text-3xl font-black text-secondary">248</p>
+<p class="text-xs font-bold uppercase text-stone-500">Hours Saved</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-end pb-4 pt-2 px-2 bg-[#f4f1ea] dark:bg-[#1a1a1a] bg-[url('https://www.transparenttextures.com/patterns/graph-paper.png')] border-t-4 border-[#1A4B84] shadow-[0_-4px_0px_0px_rgba(26,75,132,0.1)]">
+<a class="flex flex-col items-center justify-center text-[#1A4B84] opacity-70 hover:bg-stone-200 dark:hover:bg-stone-800 active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined">handyman</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase">Workshop</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#1A4B84] opacity-70 hover:bg-stone-200 dark:hover:bg-stone-800 active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined">architecture</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase">Blueprints</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#1A4B84] opacity-70 hover:bg-stone-200 dark:hover:bg-stone-800 active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined">storefront</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase">Bazaari</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-[#FFD700] text-black border-2 border-black -translate-y-2 px-4 py-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">inventory_2</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase">Archive</span>
+</a>
+</nav>
+</body></html>
