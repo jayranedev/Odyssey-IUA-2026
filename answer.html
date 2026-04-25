@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>JUGAAD GPT - The Blueprint</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 48;
+        }
+        .blueprint-grid {
+            background-image: 
+                linear-gradient(rgba(26, 75, 132, 0.2) 1px, transparent 1px),
+                linear-gradient(90px, rgba(26, 75, 132, 0.2) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        .tape-corner::before {
+            content: '';
+            position: absolute;
+            top: -10px;
+            left: -10px;
+            width: 30px;
+            height: 30px;
+            background: #A0A0A0;
+            transform: rotate(-45deg);
+            z-index: 10;
+            border: 1px solid #737781;
+        }
+        .tape-corner-tr::after {
+            content: '';
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            width: 30px;
+            height: 30px;
+            background: #1A4B84;
+            transform: rotate(45deg);
+            z-index: 10;
+            border: 1px solid #001c3b;
+        }
+        .hand-drawn-circle {
+            border-radius: 48% 52% 55% 45% / 42% 58% 42% 58%;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-background": "#1b1c19",
+                        "inverse-surface": "#30312e",
+                        "on-primary": "#ffffff",
+                        "on-error-container": "#93000a",
+                        "inverse-primary": "#a6c8ff",
+                        "surface": "#fbf9f4",
+                        "secondary-fixed": "#ffdbc9",
+                        "primary-fixed": "#d5e3ff",
+                        "surface-container-low": "#f5f3ee",
+                        "on-tertiary-fixed": "#221b00",
+                        "surface-container": "#f0eee9",
+                        "tertiary": "#705d00",
+                        "outline": "#737781",
+                        "primary": "#003466",
+                        "on-secondary-fixed": "#321200",
+                        "on-primary-fixed": "#001c3b",
+                        "on-secondary-container": "#783603",
+                        "on-error": "#ffffff",
+                        "primary-fixed-dim": "#a6c8ff",
+                        "secondary-fixed-dim": "#ffb68c",
+                        "surface-dim": "#dbdad5",
+                        "surface-container-high": "#eae8e3",
+                        "error-container": "#ffdad6",
+                        "on-surface": "#1b1c19",
+                        "surface-bright": "#fbf9f4",
+                        "surface-container-highest": "#e4e2dd",
+                        "primary-container": "#1a4b84",
+                        "surface-tint": "#335f99",
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary-container": "#4c3e00",
+                        "on-primary-container": "#93bcfc",
+                        "on-tertiary-fixed-variant": "#544600",
+                        "inverse-on-surface": "#f2f1ec",
+                        "on-secondary-fixed-variant": "#753401",
+                        "on-surface-variant": "#424750",
+                        "tertiary-container": "#c9a900",
+                        "error": "#ba1a1a",
+                        "background": "#fbf9f4",
+                        "outline-variant": "#c3c6d1",
+                        "tertiary-fixed": "#ffe16d",
+                        "on-secondary": "#ffffff",
+                        "surface-variant": "#e4e2dd",
+                        "on-tertiary": "#ffffff",
+                        "secondary": "#934b19",
+                        "on-primary-fixed-variant": "#144780",
+                        "tertiary-fixed-dim": "#e9c400",
+                        "secondary-container": "#ffa26a"
+                    },
+                    "fontFamily": {
+                        "display": ["Inter"],
+                        "data-tabular": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "annotation": ["cursive"],
+                        "body-md": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-lg": ["Inter"]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-background text-on-background min-h-screen pb-24 blueprint-grid">
+<!-- TopAppBar -->
+<header class="flex justify-between items-center w-full px-6 py-4 bg-[url('https://www.transparenttextures.com/patterns/graph-paper.png')] bg-[#f4f1ea] dark:bg-[#1a1a1a] docked full-width top-0 border-b-4 border-double border-[#1A4B84] shadow-[4px_4px_0px_0px_rgba(26,75,132,1)] sticky z-50">
+<div class="text-2xl font-black text-[#1A4B84] dark:text-[#4A90E2] tracking-widest font-['Inter'] uppercase tracking-tighter">
+            JUGAAD GPT
+        </div>
+<div class="flex items-center gap-4">
+<button class="bg-[#FFD700] border-2 border-black px-4 py-1 font-bold uppercase text-sm shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all">
+                NEW PROJECT
+            </button>
+<button class="material-symbols-outlined text-[#1A4B84] hover:bg-[#1A4B84] hover:text-white transition-colors p-1">
+                settings
+            </button>
+</div>
+</header>
+<main class="max-w-5xl mx-auto px-margin mt-8">
+<!-- Title Section -->
+<div class="mb-8">
+<h1 class="font-display text-display text-primary uppercase">PEDAL-POWERED IRRIGATION PUMP</h1>
+<div class="flex items-center gap-2 mt-2">
+<span class="bg-primary text-white px-3 py-1 text-xs font-bold">SCHEMATIC ID: BP-772-IND</span>
+<span class="bg-secondary-container text-on-secondary-container px-3 py-1 text-xs font-bold">STATUS: VERIFIED TOOL</span>
+</div>
+</div>
+<!-- Main Content Grid -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-8 mb-20">
+<!-- Left: Assembly Illustration -->
+<div class="md:col-span-7 relative group">
+<div class="relative bg-primary-container border-4 border-primary p-2 shadow-[8px_8px_0px_0px_rgba(0,52,102,0.3)] tape-corner tape-corner-tr">
+<img alt="Blueprint Schematic" class="w-full grayscale brightness-125 contrast-125" data-alt="technical blueprint of a pedal-powered water pump made of scrap metal and bicycle parts, white lines on blueprint blue background, architectural style" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBAsWUALP7E8rQY8Cz5DL0Xf_ECPrHH_MLPVkr-raClALc57XpuxKXuDNnZckDs6BswLj4r92LdFdn3rg07gD3jjF5pIcrjNMPu57SLCwgH6RKRmBHzNKck-foSrLEB8Zz0T_NDb4ZNNxFHNJCu1la-T-kSSHmEXPuaioL_rX_qKKRiNo5I9bhD-sDRxIRzMo54OsqaJul5lgWypKZHAWLbSbHo2L3UA2jjVJMxhlxaWQW73LKWRqSVy26Yv5GRX5fqmjRskoZaeIo"/>
+<!-- Callout Annotations -->
+<div class="absolute top-1/4 right-1/4 flex flex-col items-center">
+<span class="bg-tertiary-fixed text-on-tertiary-fixed px-2 py-1 font-bold text-xs border border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">USE 12mm BOLTS</span>
+<svg class="w-12 h-12 text-tertiary-fixed -scale-x-100" viewbox="0 0 100 100">
+<path d="M10,90 Q50,90 90,10" fill="none" stroke="currentColor" stroke-dasharray="5,5" stroke-width="3"></path>
+<path d="M85,15 L90,10 L82,8" fill="none" stroke="currentColor" stroke-width="3"></path>
+</svg>
+</div>
+</div>
+<!-- Voice Help Button Floating -->
+<button class="absolute -bottom-6 -right-6 bg-tertiary-container text-on-tertiary-container flex items-center gap-3 px-6 py-4 border-2 border-on-tertiary-container shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all">
+<span class="material-symbols-outlined" data-weight="fill">volume_up</span>
+<div class="text-left">
+<p class="font-bold text-xs uppercase leading-tight">Hindi/English Help</p>
+<p class="text-xl font-black">आवाज़ सहायता</p>
+</div>
+</button>
+</div>
+<!-- Right: Steps List -->
+<div class="md:col-span-5 flex flex-col gap-6">
+<div class="border-2 border-primary bg-surface-container-highest p-6 relative">
+<h2 class="font-headline-lg text-headline-lg text-primary uppercase mb-6 border-b-2 border-primary pb-2 flex justify-between items-center">
+                        Assembly Steps
+                        <span class="material-symbols-outlined">build</span>
+</h2>
+<!-- Step 1 -->
+<div class="flex gap-4 mb-8">
+<div class="hand-drawn-circle w-10 h-10 shrink-0 border-2 border-primary flex items-center justify-center font-black text-xl bg-primary text-white">1</div>
+<div>
+<h3 class="font-headline-md text-headline-md text-on-surface uppercase leading-tight">Base Frame</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">Secure the bicycle frame to the heavy wooden base using iron clamps.</p>
+</div>
+</div>
+<!-- Step 2 -->
+<div class="flex gap-4 mb-8">
+<div class="hand-drawn-circle w-10 h-10 shrink-0 border-2 border-primary flex items-center justify-center font-black text-xl">2</div>
+<div>
+<h3 class="font-headline-md text-headline-md text-on-surface uppercase leading-tight">Drive Chain</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">Connect the rear sprocket to the pump impeller using a standard cycle chain.</p>
+</div>
+</div>
+<!-- Step 3 -->
+<div class="flex gap-4 mb-8">
+<div class="hand-drawn-circle w-10 h-10 shrink-0 border-2 border-primary flex items-center justify-center font-black text-xl">3</div>
+<div>
+<h3 class="font-headline-md text-headline-md text-on-surface uppercase leading-tight">Inlet Valve</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">Attach the 2-inch PVC pipe to the suction end of the pump. Ensure no air leaks.</p>
+</div>
+</div>
+<!-- Step 4 -->
+<div class="flex gap-4 opacity-50">
+<div class="hand-drawn-circle w-10 h-10 shrink-0 border-2 border-primary flex items-center justify-center font-black text-xl">4</div>
+<div>
+<h3 class="font-headline-md text-headline-md text-on-surface uppercase leading-tight">Test Flow</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">Pedal at 60 RPM to start water suction from the source.</p>
+</div>
+</div>
+</div>
+<!-- Parts List Card -->
+<div class="bg-primary text-white p-4 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+<p class="text-xs font-bold uppercase mb-2 opacity-80">Materials Needed</p>
+<ul class="font-data-tabular text-data-tabular space-y-1">
+<li class="flex justify-between"><span>Old Cycle Frame</span> <span>1 Unit</span></li>
+<li class="flex justify-between border-t border-white/20 pt-1"><span>Hand Pump Head</span> <span>1 Unit</span></li>
+<li class="flex justify-between border-t border-white/20 pt-1"><span>PVC Pipe (2")</span> <span>10 Feet</span></li>
+</ul>
+</div>
+</div>
+</div>
+<!-- Call to Action -->
+<div class="mb-24 flex flex-wrap gap-4">
+<button class="flex-1 min-w-[200px] bg-secondary text-white py-4 font-black uppercase text-xl shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] border-2 border-black flex items-center justify-center gap-2 active:translate-x-1 active:translate-y-1 active:shadow-none transition-all">
+<span class="material-symbols-outlined">save</span>
+                SAVE TO ARCHIVE
+            </button>
+<button class="flex-1 min-w-[200px] bg-white text-primary py-4 font-black uppercase text-xl shadow-[6px_6px_0px_0px_rgba(0,52,102,1)] border-2 border-primary flex items-center justify-center gap-2 active:translate-x-1 active:translate-y-1 active:shadow-none transition-all">
+<span class="material-symbols-outlined">share</span>
+                SHARE BLUEPRINT
+            </button>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-end pb-4 pt-2 px-2 bg-[url('https://www.transparenttextures.com/patterns/graph-paper.png')] bg-[#f4f1ea] dark:bg-[#1a1a1a] border-t-4 border-[#1A4B84] shadow-[0_-4px_0px_0px_rgba(26,75,132,0.1)]">
+<a class="flex flex-col items-center justify-center text-[#1A4B84] opacity-70 hover:bg-stone-200 p-2" href="#">
+<span class="material-symbols-outlined">handyman</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase">Workshop</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-[#FFD700] text-black border-2 border-black -translate-y-2 px-4 py-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]" href="#">
+<span class="material-symbols-outlined">architecture</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase">Blueprints</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#1A4B84] opacity-70 hover:bg-stone-200 p-2" href="#">
+<span class="material-symbols-outlined">storefront</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase">Bazaari</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#1A4B84] opacity-70 hover:bg-stone-200 p-2" href="#">
+<span class="material-symbols-outlined">inventory_2</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase">Archive</span>
+</a>
+</nav>
+</body></html>
