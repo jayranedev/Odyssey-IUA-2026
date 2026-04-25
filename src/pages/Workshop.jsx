@@ -9,6 +9,7 @@ const Workshop = () => {
   const [budget, setBudget] = useState(500);
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [previewImage, setPreviewImage] = useState(null);
 
   const handleGenerate = async () => {
     if (!problem.trim()) return;
@@ -138,13 +139,55 @@ const Workshop = () => {
                 <span className="material-symbols-outlined text-sm">add</span> Add Entry
               </button>
             </div>
-            {/* Scan Visual Placeholder */}
-            <div className="mt-4 border-2 border-dashed border-primary-container p-4 bg-surface-container-highest flex items-center gap-4">
-              <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuDI_EaLKLMZrpdTZrCIFyqVELja7EeG8ChKuxHFzFvf1vVT_3Ghq6pL76qKGg23gTYCua5HlmW5vf8cplRiPOBjEdHHES6PJk3D_DE16d7pH4ZZ7daasCJYYWvkHPvf0cngButFW1lAjfQoOwIES4iXNxMKxsNHDbKuocqKXTxeyP0T-wQ7V8bm1ffW-U3nKiu_ECncZDAyqokzUXtjdmpz0aeoB-0PPBX_2NrLhhTcAny7KJISaKr6hWReSOuXtH50H8ErNo5q0aM" alt="Scrap" className="w-16 h-16 object-cover border-2 border-on-background" />
-              <div>
-                <p className="font-display text-sm font-bold text-primary">SCANNER ACTIVE</p>
-                <p className="text-xs text-on-surface-variant font-body-md">Vintage Camera detection running...</p>
-              </div>
+            {/* Drop Scrap Photo Area */}
+            <div 
+              className="mt-6 border-2 border-dashed border-primary-container p-6 bg-surface-container-highest flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-primary/5 transition-colors relative min-h-[160px]"
+              onClick={() => !previewImage && document.getElementById('scrap-upload').click()}
+            >
+              <input 
+                type="file" 
+                id="scrap-upload" 
+                className="hidden" 
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setPreviewImage(URL.createObjectURL(file));
+                  }
+                }}
+              />
+              
+              {previewImage ? (
+                <div className="relative w-full h-full flex flex-col items-center">
+                  <img 
+                    src={previewImage} 
+                    alt="Scrap Preview" 
+                    className="max-h-40 w-auto object-contain border-2 border-primary shadow-jugaad-black/20" 
+                  />
+                  <button 
+                    className="absolute -top-2 -right-2 bg-error text-white rounded-full p-1 shadow-lg hover:scale-110 transition-transform"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPreviewImage(null);
+                    }}
+                  >
+                    <span className="material-symbols-outlined text-sm">close</span>
+                  </button>
+                  <p className="mt-2 text-[10px] font-black text-primary uppercase">Image Captured • Scanning for materials...</p>
+                </div>
+              ) : (
+                <>
+                  <span className="material-symbols-outlined text-5xl text-primary/40">cloud_upload</span>
+                  <div className="text-center">
+                    <p className="font-display text-xl font-black text-primary leading-tight uppercase tracking-tighter">
+                      Drop Scrap Photo Here
+                    </p>
+                    <p className="text-xs text-secondary font-annotation italic">
+                      or click to browse files
+                    </p>
+                  </div>
+                </>
+              )}
             </div>
           </section>
 
