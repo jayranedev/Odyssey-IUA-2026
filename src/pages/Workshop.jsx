@@ -1,6 +1,68 @@
-import React from 'react';
+import React, { useState } from 'react';
+import ChatInterface from '../components/ChatInterface';
+import { getGemmaResponse } from '../services/ai';
 
 const Workshop = () => {
+  const [isChatting, setIsChatting] = useState(false);
+  const [problem, setProblem] = useState('');
+  const [scraps, setScraps] = useState(['Old cycle rim', 'PVC Pipe (2 meters)', '']);
+  const [budget, setBudget] = useState(500);
+  const [messages, setMessages] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleGenerate = async () => {
+    if (!problem.trim()) return;
+    
+    setIsChatting(true);
+    setIsLoading(true);
+    
+    const initialMessage = {
+      role: 'user',
+      text: `Problem: ${problem}\nScraps: ${scraps.filter(s => s).join(', ')}\nBudget: ₹${budget}`
+    };
+    
+    setMessages([initialMessage]);
+    
+    const aiResponse = await getGemmaResponse(initialMessage.text);
+    
+    setMessages(prev => [...prev, {
+      role: 'assistant',
+      text: aiResponse,
+      type: 'solution'
+    }]);
+    
+    setIsLoading(false);
+  };
+
+  const handleSendMessage = async (text) => {
+    const userMsg = { role: 'user', text };
+    setMessages(prev => [...prev, userMsg]);
+    setIsLoading(true);
+    
+    const aiResponse = await getGemmaResponse(text, messages);
+    
+    setMessages(prev => [...prev, {
+      role: 'assistant',
+      text: aiResponse,
+      type: 'advisory'
+    }]);
+    
+    setIsLoading(false);
+  };
+
+  if (isChatting) {
+    return (
+      <main className="max-w-4xl mx-auto px-margin mt-8 graph-paper min-h-screen border-x-2 border-outline-variant shadow-inner py-10">
+        <ChatInterface 
+          messages={messages} 
+          onSendMessage={handleSendMessage} 
+          isLoading={isLoading}
+          projectContext={{ title: problem.substring(0, 30) + '...', scraps }}
+        />
+      </main>
+    );
+  }
+
   return (
     <main className="max-w-4xl mx-auto px-margin mt-8 graph-paper min-h-screen border-x-2 border-outline-variant shadow-inner py-10 mb-24">
       <div className="mb-10 px-4">
@@ -23,6 +85,8 @@ const Workshop = () => {
             <textarea 
               className="w-full bg-surface-container-low border-b-2 border-on-background border-t-0 border-x-0 focus:ring-0 focus:border-primary p-4 font-body-lg min-h-[150px] placeholder:text-outline-variant" 
               placeholder="What needs fixing or building? (e.g. My water pump handle broke, need a manual grain thresher...)"
+              value={problem}
+              onChange={(e) => setProblem(e.target.value)}
             ></textarea>
             <div className="absolute bottom-2 right-2 font-annotation text-sm text-outline opacity-50">Line no. 001</div>
           </div>
@@ -43,21 +107,36 @@ const Workshop = () => {
               </button>
             </div>
             <div className="space-y-2">
-              <div className="flex items-center border-b border-dashed border-outline-variant py-2">
-                <span className="font-data-tabular mr-4 text-outline">01.</span>
-                <input className="bg-transparent border-none focus:ring-0 w-full font-body-md uppercase" type="text" defaultValue="Old cycle rim" />
-                <button className="text-error px-2"><span className="material-symbols-outlined text-sm">close</span></button>
-              </div>
-              <div className="flex items-center border-b border-dashed border-outline-variant py-2">
-                <span className="font-data-tabular mr-4 text-outline">02.</span>
-                <input className="bg-transparent border-none focus:ring-0 w-full font-body-md uppercase" type="text" defaultValue="PVC Pipe (2 meters)" />
-                <button className="text-error px-2"><span className="material-symbols-outlined text-sm">close</span></button>
-              </div>
-              <div className="flex items-center border-b border-dashed border-outline-variant py-2">
-                <span className="font-data-tabular mr-4 text-outline">03.</span>
-                <input className="bg-transparent border-none focus:ring-0 w-full font-body-md uppercase placeholder:opacity-30" placeholder="Add more scrap..." type="text" />
-                <button className="text-primary px-2"><span className="material-symbols-outlined text-sm">add</span></button>
-              </div>
+              {scraps.map((scrap, index) => (
+                <div key={index} className="flex items-center border-b border-dashed border-outline-variant py-2">
+                  <span className="font-data-tabular mr-4 text-outline">{String(index + 1).padStart(2, '0')}.</span>
+                  <input 
+                    className="bg-transparent border-none focus:ring-0 w-full font-body-md uppercase" 
+                    type="text" 
+                    value={scrap}
+                    onChange={(e) => {
+                      const newScraps = [...scraps];
+                      newScraps[index] = e.target.value;
+                      setScraps(newScraps);
+                    }}
+                    placeholder={index === scraps.length - 1 ? "Add more scrap..." : ""}
+                  />
+                  {scrap && (
+                    <button 
+                      className="text-error px-2"
+                      onClick={() => setScraps(scraps.filter((_, i) => i !== index))}
+                    >
+                      <span className="material-symbols-outlined text-sm">close</span>
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button 
+                className="text-primary mt-2 flex items-center gap-1 text-xs font-bold uppercase"
+                onClick={() => setScraps([...scraps, ''])}
+              >
+                <span className="material-symbols-outlined text-sm">add</span> Add Entry
+              </button>
             </div>
             {/* Scan Visual Placeholder */}
             <div className="mt-4 border-2 border-dashed border-primary-container p-4 bg-surface-container-highest flex items-center gap-4">
@@ -77,7 +156,12 @@ const Workshop = () => {
             </div>
             <div className="flex-grow flex flex-col justify-center text-center p-4 bg-primary-fixed border-2 border-primary">
               <span className="text-xs font-display font-black text-on-primary-fixed-variant uppercase">Indian Rupees (₹)</span>
-              <input className="bg-transparent border-none focus:ring-0 text-center text-4xl font-black text-primary p-0" type="number" defaultValue="500" />
+              <input 
+                className="bg-transparent border-none focus:ring-0 text-center text-4xl font-black text-primary p-0" 
+                type="number" 
+                value={budget}
+                onChange={(e) => setBudget(Number(e.target.value))}
+              />
               <div className="h-1 bg-primary w-full mt-2"></div>
             </div>
             <p className="mt-4 font-annotation text-xs text-secondary text-center italic">"Build it cheap, build it strong."</p>
@@ -86,7 +170,11 @@ const Workshop = () => {
 
         {/* Submit Action */}
         <div className="flex justify-center py-10">
-          <button className="group relative px-12 py-6 bg-[#FFD700] border-4 border-on-background shadow-jugaad-blue-lg active:translate-x-1 active:translate-y-1 active:shadow-none transition-all">
+          <button 
+            onClick={handleGenerate}
+            className="group relative px-12 py-6 bg-[#FFD700] border-4 border-on-background shadow-jugaad-blue-lg active:translate-x-1 active:translate-y-1 active:shadow-none transition-all disabled:opacity-50"
+            disabled={!problem.trim()}
+          >
             <div className="flex items-center gap-4">
               <span className="font-display text-3xl font-black uppercase tracking-widest">Generate Solution</span>
               <span className="material-symbols-outlined text-4xl">settings_suggest</span>
