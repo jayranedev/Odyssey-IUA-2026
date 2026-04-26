@@ -18,33 +18,52 @@ const Blueprints = () => {
     }
   }, []);
 
-  // Load or generate schematic image — cached in localStorage per blueprint title
+  // Load or generate schematic image — DB-cached by title
   useEffect(() => {
     if (!bp) return;
-    const cacheKey = BP_IMG_PREFIX + btoa(bp.title).slice(0, 40);
-    const cached = localStorage.getItem(cacheKey);
-    if (cached) {
-      setSchematicImg(`data:image/png;base64,${cached}`);
-      return;
-    }
-    setSchematicImg(null);
-    setImgLoading(true);
-    fetch(`${API_BASE}/api/generate-image`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        prompt: `Technical blueprint schematic of: ${bp.title}. Engineering assembly diagram, cross-section view, hand-drawn illustration, blueprint paper style, no text`,
-      }),
-    })
-      .then(r => r.json())
-      .then(({ base64 }) => {
-        if (base64) {
-          localStorage.setItem(cacheKey, base64);
-          setSchematicImg(`data:image/png;base64,${base64}`);
+    let cancelled = false;
+
+    const run = async () => {
+      setSchematicImg(null);
+      setImgLoading(true);
+
+      // 1. Check DB cache first
+      try {
+        const dbRes = await fetch(`${API_BASE}/api/blueprint-image?title=${encodeURIComponent(bp.title)}`);
+        const { image_base64 } = await dbRes.json();
+        if (image_base64 && !cancelled) {
+          setSchematicImg(`data:image/png;base64,${image_base64}`);
+          setImgLoading(false);
+          return;
         }
-      })
-      .catch(() => {})
-      .finally(() => setImgLoading(false));
+      } catch { /* DB miss — generate fresh */ }
+
+      // 2. Generate new image
+      try {
+        const genRes = await fetch(`${API_BASE}/api/generate-image`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: `Technical blueprint schematic of: ${bp.title}. Engineering assembly diagram, cross-section view, hand-drawn illustration, blueprint paper style, no text`,
+          }),
+        });
+        const { base64 } = await genRes.json();
+        if (base64 && !cancelled) {
+          setSchematicImg(`data:image/png;base64,${base64}`);
+          // 3. Save to DB (fire and forget)
+          fetch(`${API_BASE}/api/blueprint-image`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: bp.title, image_base64: base64 }),
+          }).catch(() => {});
+        }
+      } catch { /* image generation failed silently */ }
+
+      if (!cancelled) setImgLoading(false);
+    };
+
+    run();
+    return () => { cancelled = true; };
   }, [bp]);
 
   const handlePrint = () => window.print();

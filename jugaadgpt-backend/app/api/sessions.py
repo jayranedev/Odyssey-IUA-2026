@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
 from app.models.blueprint import Blueprint
+from app.models.blueprint_image import BlueprintImage
 from app.models.chat_message import ChatMessage
 from app.models.chat_session import ChatSession
 
@@ -143,6 +144,33 @@ async def session_blueprints(session_id: str, db: AsyncSession = Depends(get_db)
         .order_by(Blueprint.created_at.asc())
     )
     return result.scalars().all()
+
+
+@router.get("/blueprint-image")
+async def get_blueprint_image(title: str, db: AsyncSession = Depends(get_db)):
+    """Return cached image_base64 from blueprint_images table."""
+    row = await db.get(BlueprintImage, title)
+    return {"image_base64": row.image_base64 if row else ""}
+
+
+@router.post("/blueprint-image")
+async def save_blueprint_image(body: dict, db: AsyncSession = Depends(get_db)):
+    """Upsert blueprint image by title — always saves, no session dependency."""
+    title = (body.get("title") or "").strip()
+    b64 = (body.get("image_base64") or "").strip()
+    if not title or not b64:
+        return {"ok": False}
+
+    row = await db.get(BlueprintImage, title)
+    if row:
+        row.image_base64 = b64
+        row.updated_at = datetime.utcnow()
+    else:
+        row = BlueprintImage(title=title, image_base64=b64)
+        db.add(row)
+
+    await db.commit()
+    return {"ok": True}
 
 
 @router.post("/blueprints")

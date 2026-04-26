@@ -65,6 +65,13 @@ async def create_card(
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
+    # If image is a base64 data URI, route it to image_base64 (image column is VARCHAR 500)
+    image_url = body.image or ""
+    image_b64 = ""
+    if image_url.startswith("data:image"):
+        image_b64 = image_url.split(",", 1)[1] if "," in image_url else ""
+        image_url = ""
+
     card = ArchiveCard(
         id=body.id or str(uuid.uuid4()),
         session_id=body.session_id,
@@ -72,11 +79,12 @@ async def create_card(
         status=body.status,
         status_color=body.status_color,
         annotation=body.annotation,
-        image=body.image,
+        image=image_url[:500],
         rotation=body.rotation,
         bg_color=body.bg_color,
         starred=body.starred,
         solution_json=body.solution_json,
+        image_base64=image_b64,
     )
     db.add(card)
     await db.commit()

@@ -18,5 +18,6 @@ class Blueprint(Base):
     materials_json: Mapped[str] = mapped_column(Text, default="[]") # JSON array of material objects
     expected_outcome: Mapped[str] = mapped_column(Text, default="")
     total_cost_inr: Mapped[float] = mapped_column(Float, default=0.0)
+    image_base64: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
