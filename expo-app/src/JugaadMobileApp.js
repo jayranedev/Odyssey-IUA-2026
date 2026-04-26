@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Image,
+  KeyboardAvoidingView,
   Platform,
   Pressable,
   SafeAreaView,
@@ -12,19 +12,19 @@ import {
   Text,
   TextInput,
   View,
-  Dimensions,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { Audio } from 'expo-av';
+import * as FileSystem from 'expo-file-system';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+// SCREEN_WIDTH available if needed for responsive sizing
 
 // ── API config ────────────────────────────────────────────────
-// Android emulator: 10.0.2.2 → host machine localhost
-// Physical device: replace with your machine's local IP e.g. 192.168.1.x
-const API_BASE = Platform.OS === 'android'
-  ? 'http://10.0.2.2:8000'
-  : 'http://localhost:8000';
+// ── API URL — use your ngrok URL if backend is already tunnelled for WhatsApp ──
+// ngrok URL looks like: https://xxxx-xx-xx-xx-xx.ngrok-free.app
+// Or for LAN: ipconfig → Mobile Hotspot IPv4, run backend with --host 0.0.0.0
+const API_BASE = 'https://erratically-shakeable-merlyn.ngrok-free.dev';
 
 function genId() {
   return `mobile_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -88,9 +88,59 @@ function GridPaper() {
   );
 }
 
+// ─── SPEAK BUTTON ────────────────────────────────────────────
+
+function SpeakButton({ text, lang }) {
+  const [state, setState] = useState('idle'); // idle | loading | playing
+  const soundRef = useRef(null);
+
+  const stop = async () => {
+    try { await soundRef.current?.stopAsync(); await soundRef.current?.unloadAsync(); } catch {}
+    soundRef.current = null;
+    setState('idle');
+  };
+
+  const toggle = async () => {
+    if (state !== 'idle') { stop(); return; }
+    setState('loading');
+    try {
+      const cleaned = text.replace(/\*+/g, '').replace(/#{1,6}\s*/g, '').replace(/\n+/g, ' ').trim().slice(0, 1000);
+      const sarvamLang = lang === 'english' ? 'en-IN' : 'hi-IN';
+      const resp = await fetch(`${API_BASE}/api/tts-b64`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '1' },
+        body: JSON.stringify({ text: cleaned, lang: sarvamLang }),
+      });
+      const { audio_base64 } = await resp.json();
+      if (!audio_base64) { setState('idle'); return; }
+
+      const fileUri = FileSystem.cacheDirectory + `tts_${Date.now()}.mp3`;
+      await FileSystem.writeAsStringAsync(fileUri, audio_base64, { encoding: FileSystem.EncodingType.Base64 });
+      await Audio.setAudioModeAsync({ playsInSilentModeIOS: true, allowsRecordingIOS: false });
+      const { sound } = await Audio.Sound.createAsync({ uri: fileUri });
+      soundRef.current = sound;
+      setState('playing');
+      await sound.playAsync();
+      sound.setOnPlaybackStatusUpdate(status => {
+        if (status.didJustFinish) { sound.unloadAsync(); soundRef.current = null; setState('idle'); }
+      });
+    } catch { setState('idle'); }
+  };
+
+  return (
+    <Pressable onPress={toggle} style={{ padding: 6 }}>
+      <Ico
+        name={state === 'idle' ? 'volume-high' : state === 'loading' ? 'dots-horizontal' : 'stop-circle'}
+        size={18}
+        color={state === 'playing' ? palette.brick : palette.mute}
+      />
+    </Pressable>
+  );
+}
+
 // ─── SOLUTION CARD ────────────────────────────────────────────
 
-function SolutionCard({ solution, onBlueprint, onBazaari }) {
+function SolutionCard({ solution, onBlueprint, onBazaari, onSave, saved }) {
   const [expanded, setExpanded] = useState(false);
   return (
     <View style={styles.solutionCard}>
@@ -147,6 +197,12 @@ function SolutionCard({ solution, onBlueprint, onBazaari }) {
       </Pressable>
 
       <View style={styles.solutionActions}>
+        {onSave && (
+          <Pressable style={[styles.actionBtn, saved && { opacity: 0.5, backgroundColor: palette.sageLight }]} onPress={saved ? null : onSave}>
+            <Ico name={saved ? 'check' : 'archive-plus-outline'} size={16} color={palette.ink} />
+            <Text style={styles.actionBtnText}>{saved ? 'SAVED' : 'SAVE'}</Text>
+          </Pressable>
+        )}
         {solution.build_steps?.length > 0 && (
           <Pressable style={styles.actionBtn} onPress={onBlueprint}>
             <Ico name="floor-plan" size={16} color={palette.ink} />
@@ -248,6 +304,53 @@ function WorkshopScreen({ budget, setBudget, scannedImage, openCamera, openGalle
 }
 
 function BlueprintsScreen({ blueprint }) {
+  const [bpImage, setBpImage] = useState(null);
+  const [bpImgLoading, setBpImgLoading] = useState(false);
+
+  useEffect(() => {
+    if (!blueprint?.title) return;
+    let cancelled = false;
+    setBpImage(null);
+    setBpImgLoading(true);
+
+    const run = async () => {
+      try {
+        const r = await fetch(
+          `${API_BASE}/api/blueprint-image?title=${encodeURIComponent(blueprint.title)}`,
+          { headers: { 'ngrok-skip-browser-warning': '1' } }
+        );
+        const { image_base64 } = await r.json();
+        if (image_base64 && !cancelled) {
+          setBpImage(`data:image/png;base64,${image_base64}`);
+          setBpImgLoading(false);
+          return;
+        }
+      } catch { /* cache miss */ }
+
+      try {
+        const r = await fetch(`${API_BASE}/api/generate-image`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '1' },
+          body: JSON.stringify({ prompt: `Technical blueprint schematic: ${blueprint.title}. Engineering assembly diagram, hand-drawn, blueprint paper style, no text` }),
+        });
+        const { base64 } = await r.json();
+        if (base64 && !cancelled) {
+          setBpImage(`data:image/png;base64,${base64}`);
+          fetch(`${API_BASE}/api/blueprint-image`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '1' },
+            body: JSON.stringify({ title: blueprint.title, image_base64: base64 }),
+          }).catch(() => {});
+        }
+      } catch { /* generation failed */ }
+
+      if (!cancelled) setBpImgLoading(false);
+    };
+
+    run();
+    return () => { cancelled = true; };
+  }, [blueprint?.title]);
+
   if (!blueprint) {
     return (
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
@@ -277,6 +380,23 @@ function BlueprintsScreen({ blueprint }) {
         {blueprint.summary ? (
           <Text style={{ color: palette.graphite, lineHeight: 22, marginBottom: 20 }}>{blueprint.summary}</Text>
         ) : null}
+
+        {/* Schematic image */}
+        {(bpImage || bpImgLoading) && (
+          <View style={{ borderWidth: 3, borderColor: palette.ink, backgroundColor: palette.kraft, marginBottom: 20, overflow: 'hidden' }}>
+            {bpImgLoading && !bpImage ? (
+              <View style={{ height: 180, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 10 }}>
+                <ActivityIndicator color={palette.ink} />
+                <Text style={{ fontSize: 12, fontWeight: '900', color: palette.mute }}>GENERATING SCHEMATIC…</Text>
+              </View>
+            ) : (
+              <Image source={{ uri: bpImage }} style={{ width: '100%', height: 200 }} resizeMode="cover" />
+            )}
+            <View style={{ position: 'absolute', top: 6, right: 6, backgroundColor: palette.ink, paddingHorizontal: 6, paddingVertical: 2 }}>
+              <Text style={{ color: palette.white, fontSize: 9, fontWeight: '900' }}>AI GENERATED</Text>
+            </View>
+          </View>
+        )}
 
         <View style={styles.assemblyBox}>
           <View style={styles.assemblyHeader}>
@@ -383,7 +503,7 @@ function ArchiveScreen({ onSelectCard }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/archive`)
+    fetch(`${API_BASE}/api/archive`, { headers: { 'ngrok-skip-browser-warning': '1' } })
       .then(r => r.json())
       .then(data => { setCards(data); setLoading(false); })
       .catch(() => setLoading(false));
@@ -432,115 +552,230 @@ function ArchiveScreen({ onSelectCard }) {
 
 // ─── AI HUB ──────────────────────────────────────────────────
 
-function AIHub({ visible, onClose, onSolution, budget, scannedImage }) {
-  const [input, setInput] = useState('');
-  const [messages, setMessages] = useState([
-    { id: 1, type: 'assistant', text: 'Kya banana chahte ho? Budget aur jagah batao — main jugaad solution dhoondta hoon.' }
-  ]);
-  const [isTyping, setIsTyping] = useState(false);
-  const [sessionId] = useState(() => genId());
-  const scrollRef = useRef();
+const WELCOME_MSG = { id: 'welcome', type: 'assistant', text: 'Kya banana chahte ho? Budget aur jagah batao — main jugaad solution dhoondta hoon.' };
 
-  const handleSend = useCallback(async () => {
+function AIHub({ visible, onClose, onSolution, budget, scannedImage, scannedImageB64, onSaveToArchive, onShowHistory }) {
+  const [input, setInput] = useState('');
+  const [messages, setMessages] = useState([WELCOME_MSG]);
+  const [isTyping, setIsTyping] = useState(false);
+  const [lang, setLang] = useState('hinglish');
+  const [savedMsgIds, setSavedMsgIds] = useState(new Set());
+  const [isRecording, setIsRecording] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+  const [sessionId, setSessionId] = useState(() => genId());
+  const scrollRef = useRef();
+  const xhrRef = useRef(null);
+  const recordingRef = useRef(null);
+  const sessionTitleRef = useRef('New Chat'); // tracks first user msg for DB upsert
+  const langRef = useRef(lang);
+  useEffect(() => { langRef.current = lang; }, [lang]);
+
+  // Fire-and-forget: upsert session then append a message to DB
+  const persistMessage = useCallback((role, type, content) => {
+    const headers = { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '1' };
+    fetch(`${API_BASE}/api/sessions`, {
+      method: 'POST', headers,
+      body: JSON.stringify({ id: sessionId, title: sessionTitleRef.current, lang: langRef.current }),
+    }).then(() => fetch(`${API_BASE}/api/sessions/${sessionId}/messages`, {
+      method: 'POST', headers,
+      body: JSON.stringify({ role, type, content_json: JSON.stringify(content) }),
+    })).catch(() => {});
+  }, [sessionId]);
+
+  const startNewChat = useCallback(() => {
+    xhrRef.current?.abort();
+    xhrRef.current = null;
+    setMessages([WELCOME_MSG]);
+    setSessionId(genId());
+    setSavedMsgIds(new Set());
+    setInput('');
+    setIsTyping(false);
+    sessionTitleRef.current = 'New Chat';
+  }, []);
+
+  // Parse SSE blocks: backend sends "event: token\ndata: text\n\n" format
+  const parseSSE = useCallback((chunk, state) => {
+    const blocks = chunk.split('\n\n');
+    for (const block of blocks) {
+      if (!block.trim()) continue;
+      let eventType = '';
+      let dataLine = '';
+      for (const line of block.split('\n')) {
+        if (line.startsWith('event: ')) eventType = line.slice(7).trim();
+        else if (line.startsWith('data: ')) dataLine = line.slice(6);
+      }
+      if (!eventType || dataLine === '') continue;
+
+      if (eventType === 'token') {
+        state.tokenAccum += dataLine;
+        if (!state.tokenMsgId) {
+          const id = `tok_${Date.now()}_${Math.random()}`;
+          state.tokenMsgId = id;
+          setMessages(prev => [...prev, { id, type: 'assistant', text: state.tokenAccum }]);
+        } else {
+          const id = state.tokenMsgId;
+          setMessages(prev => prev.map(m => m.id === id ? { ...m, text: state.tokenAccum } : m));
+        }
+      } else if (eventType === 'clarification') {
+        try {
+          const parsed = JSON.parse(dataLine);
+          state.tokenMsgId = null; state.tokenAccum = '';
+          setIsTyping(false);
+          setMessages(prev => [...prev, { id: `clar_${Date.now()}`, type: 'assistant', text: parsed.question }]);
+        } catch { /* skip malformed */ }
+      } else if (eventType === 'solution') {
+        try {
+          const parsed = JSON.parse(dataLine);
+          state.tokenMsgId = null; state.tokenAccum = '';
+          setIsTyping(false);
+          const sol = parsed.solution;
+          setMessages(prev => [...prev, { id: `sol_${Date.now()}`, type: 'solution', solution: sol }]);
+          onSolution(sol);
+          persistMessage('assistant', 'solution', sol);
+        } catch { /* skip malformed */ }
+      } else if (eventType === 'error') {
+        state.tokenMsgId = null; state.tokenAccum = '';
+        setIsTyping(false);
+        setMessages(prev => [...prev, { id: `err_${Date.now()}`, type: 'assistant', text: dataLine || 'Kuch error ho gaya.' }]);
+      }
+    }
+  }, [onSolution, persistMessage]);
+
+  const toggleRecording = useCallback(async () => {
+    if (isRecording) {
+      // Stop → transcribe
+      setIsRecording(false);
+      setTranscribing(true);
+      try {
+        await recordingRef.current?.stopAndUnloadAsync();
+        await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
+        const uri = recordingRef.current?.getURI();
+        recordingRef.current = null;
+        if (uri) {
+          const formData = new FormData();
+          formData.append('audio', { uri, type: 'audio/m4a', name: 'voice.m4a' });
+          const resp = await fetch(`${API_BASE}/api/transcribe`, {
+            method: 'POST',
+            headers: { 'ngrok-skip-browser-warning': '1' },
+            body: formData,
+          });
+          const data = await resp.json();
+          if (data.transcript) setInput(data.transcript);
+        }
+      } catch (e) { /* ignore */ }
+      setTranscribing(false);
+    } else {
+      // Start recording
+      try {
+        const { granted } = await Audio.requestPermissionsAsync();
+        if (!granted) return;
+        await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+        const { recording } = await Audio.Recording.createAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+        recordingRef.current = recording;
+        setIsRecording(true);
+      } catch (e) { /* permission denied */ }
+    }
+  }, [isRecording]);
+
+  const handleSend = useCallback(() => {
     const text = input.trim();
     if (!text || isTyping) return;
 
-    const userMsg = { id: Date.now(), type: 'user', text };
-    setMessages(prev => [...prev, userMsg]);
+    setMessages(prev => [...prev, { id: `u_${Date.now()}`, type: 'user', text }]);
     setInput('');
     setIsTyping(true);
 
-    try {
-      const history = messages
-        .filter(m => m.type === 'user' || m.type === 'assistant')
-        .map(m => `${m.type === 'user' ? 'User' : 'Assistant'}: ${m.text}`)
-        .join('\n');
+    // Set session title from first user message, then persist to DB
+    if (sessionTitleRef.current === 'New Chat') sessionTitleRef.current = text.slice(0, 50);
+    persistMessage('user', 'user', { text });
 
-      const payload = {
-        session_id: sessionId,
-        message: text,
-        lang: 'hinglish',
-        budget_inr: budget,
-        history,
-      };
+    const history = messages
+      .filter(m => m.type === 'user' || m.type === 'assistant')
+      .map(m => `${m.type === 'user' ? 'User' : 'Assistant'}: ${m.text}`)
+      .join('\n');
 
-      const resp = await fetch(`${API_BASE}/api/query`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
-        body: JSON.stringify(payload),
-      });
+    // base64 is captured at pick time via ImagePicker's base64: true option
+    const imageBase64 = scannedImageB64 || null;
 
-      const reader = resp.body.getReader();
-      const decoder = new TextDecoder();
-      let buf = '';
-      let tokenAccum = '';
-      let tokenMsgId = null;
+    const payload = JSON.stringify({
+      session_id: sessionId,
+      message: text,
+      lang,
+      budget_inr: budget,
+      history,
+      image_base64: imageBase64,
+    });
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buf += decoder.decode(value, { stream: true });
-        const lines = buf.split('\n');
-        buf = lines.pop();
+    // Use XHR for streaming — fetch+getReader() is unreliable on React Native
+    const state = { offset: 0, tokenAccum: '', tokenMsgId: null };
+    const xhr = new XMLHttpRequest();
+    xhrRef.current = xhr;
+    xhr.open('POST', `${API_BASE}/api/query`);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.setRequestHeader('ngrok-skip-browser-warning', '1');
+    xhr.timeout = 60000; // 60s — prevents infinite spinner on network failure
 
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          const raw = line.slice(6).trim();
-          if (!raw || raw === '[DONE]') continue;
-          try {
-            const ev = JSON.parse(raw);
+    xhr.onprogress = () => {
+      const newText = xhr.responseText.slice(state.offset);
+      state.offset = xhr.responseText.length;
+      if (newText) parseSSE(newText, state);
+    };
 
-            if (ev.type === 'status') {
-              // silent
-            } else if (ev.type === 'token') {
-              tokenAccum += ev.content || '';
-              if (!tokenMsgId) {
-                tokenMsgId = Date.now();
-                setMessages(prev => [...prev, { id: tokenMsgId, type: 'assistant', text: tokenAccum }]);
-              } else {
-                setMessages(prev => prev.map(m => m.id === tokenMsgId ? { ...m, text: tokenAccum } : m));
-              }
-            } else if (ev.type === 'clarification') {
-              tokenMsgId = null;
-              tokenAccum = '';
-              setIsTyping(false);
-              setMessages(prev => [...prev, { id: Date.now(), type: 'assistant', text: ev.question || ev.text }]);
-            } else if (ev.type === 'solution') {
-              tokenMsgId = null;
-              tokenAccum = '';
-              setIsTyping(false);
-              const sol = ev.solution;
-              setMessages(prev => [...prev, { id: Date.now(), type: 'solution', solution: sol }]);
-              onSolution(sol);
-            } else if (ev.type === 'error') {
-              setIsTyping(false);
-              setMessages(prev => [...prev, { id: Date.now(), type: 'assistant', text: ev.message || 'Kuch error ho gaya. Dobara try karo.' }]);
-            }
-          } catch { /* skip */ }
-        }
-      }
-    } catch {
-      setMessages(prev => [...prev, { id: Date.now(), type: 'assistant', text: 'Server se connect nahi ho paya. Check karo ki backend chal raha hai.' }]);
-    } finally {
+    xhr.onload = () => {
+      const remaining = xhr.responseText.slice(state.offset);
+      if (remaining.trim()) parseSSE(remaining, state);
+      // Persist streamed assistant text if not already saved as solution
+      if (state.tokenAccum) persistMessage('assistant', 'assistant', { text: state.tokenAccum });
       setIsTyping(false);
-    }
-  }, [input, isTyping, messages, sessionId, budget]);
+      xhrRef.current = null;
+    };
+
+    xhr.onerror = () => {
+      setMessages(prev => [...prev, { id: `err_${Date.now()}`, type: 'assistant', text: `Connect nahi hua: ${API_BASE} — backend running? IP sahi hai?` }]);
+      setIsTyping(false);
+      xhrRef.current = null;
+    };
+
+    xhr.ontimeout = () => {
+      setMessages(prev => [...prev, { id: `err_${Date.now()}`, type: 'assistant', text: `Timeout (60s): ${API_BASE} — backend slow ya unreachable.` }]);
+      setIsTyping(false);
+      xhrRef.current = null;
+    };
+
+    xhr.send(payload);
+  }, [input, isTyping, messages, sessionId, budget, lang, scannedImageB64, parseSSE, persistMessage]);
 
   if (!visible) return null;
 
   return (
     <View style={styles.aiOverlay}>
-      <SafeAreaView style={{ flex: 1 }}>
+      <View style={{ flex: 1 }}>
         <View style={styles.aiHeader}>
+          <Pressable onPress={onShowHistory} style={{ padding: 4, marginRight: 8 }}>
+            <Ico name="history" size={24} color={palette.ink} />
+          </Pressable>
           <Text style={styles.aiHeaderTitle}>JUGAAD AI HUB</Text>
+          <Pressable onPress={startNewChat} style={{ padding: 4, marginRight: 8 }}>
+            <Ico name="plus-circle-outline" size={24} color={palette.ink} />
+          </Pressable>
           <Pressable onPress={onClose}><Ico name="close" size={28} /></Pressable>
+        </View>
+
+        {/* Language selector */}
+        <View style={styles.langRow}>
+          {[['hinglish', 'Hinglish'], ['english', 'EN'], ['hindi', 'हिन्दी']].map(([val, label]) => (
+            <Pressable key={val} onPress={() => setLang(val)} style={[styles.langChip, lang === val && styles.langChipActive]}>
+              <Text style={[styles.langChipText, lang === val && styles.langChipTextActive]}>{label}</Text>
+            </Pressable>
+          ))}
         </View>
 
         <ScrollView
           ref={scrollRef}
           style={{ flex: 1 }}
-          contentContainerStyle={{ padding: 16, paddingBottom: 120 }}
+          contentContainerStyle={{ padding: 16, paddingBottom: 16 }}
           onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
+          keyboardShouldPersistTaps="handled"
         >
           {messages.map(msg => {
             if (msg.type === 'solution') {
@@ -548,20 +783,27 @@ function AIHub({ visible, onClose, onSolution, budget, scannedImage }) {
                 <View key={msg.id} style={{ marginBottom: 12 }}>
                   <SolutionCard
                     solution={msg.solution}
-                    onBlueprint={() => { onClose(); }}
-                    onBazaari={() => { onClose(); }}
+                    onBlueprint={() => { onClose(messages); }}
+                    onBazaari={() => { onClose(messages); }}
+                    onSave={() => {
+                      setSavedMsgIds(prev => new Set([...prev, msg.id]));
+                      onSaveToArchive(msg.solution, sessionId);
+                    }}
+                    saved={savedMsgIds.has(msg.id)}
                   />
                 </View>
               );
             }
             return (
-              <View
-                key={msg.id}
-                style={[styles.msgBubble, msg.type === 'user' ? styles.userBubble : styles.assistantBubble]}
-              >
-                <Text style={[styles.msgText, msg.type === 'user' ? styles.userMsgText : styles.assistantMsgText]}>
-                  {msg.text}
-                </Text>
+              <View key={msg.id} style={{ alignSelf: msg.type === 'user' ? 'flex-end' : 'flex-start', maxWidth: '85%', marginBottom: 12 }}>
+                <View style={[styles.msgBubble, { marginBottom: 0 }, msg.type === 'user' ? styles.userBubble : styles.assistantBubble]}>
+                  <Text style={[styles.msgText, msg.type === 'user' ? styles.userMsgText : styles.assistantMsgText]}>
+                    {msg.text}
+                  </Text>
+                </View>
+                {msg.type === 'assistant' && (
+                  <SpeakButton text={msg.text} lang={lang} />
+                )}
               </View>
             );
           })}
@@ -574,6 +816,7 @@ function AIHub({ visible, onClose, onSolution, budget, scannedImage }) {
           )}
         </ScrollView>
 
+        {/* Input at bottom via flex — not absolute, so it stays above home indicator */}
         <View style={styles.inputContainer}>
           {scannedImage && (
             <View style={{ marginBottom: 8, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -584,19 +827,27 @@ function AIHub({ visible, onClose, onSolution, budget, scannedImage }) {
           <View style={styles.inputWrapper}>
             <TextInput
               style={styles.chatInput}
-              placeholder="Kya banana chahte ho..."
-              placeholderTextColor={palette.mute}
+              placeholder={transcribing ? 'Transcribing...' : isRecording ? '🔴 Recording... tap to stop' : 'Kya banana chahte ho...'}
+              placeholderTextColor={isRecording ? palette.brick : palette.mute}
               value={input}
               onChangeText={setInput}
               multiline
+              returnKeyType="send"
               onSubmitEditing={handleSend}
+              editable={!isRecording && !transcribing}
             />
-            <Pressable style={[styles.sendBtn, isTyping && { opacity: 0.4 }]} onPress={handleSend} disabled={isTyping}>
+            <Pressable
+              onPress={toggleRecording}
+              style={[styles.sendBtn, { backgroundColor: isRecording ? palette.brick : palette.paper2, marginRight: 4 }]}
+            >
+              <Ico name={isRecording ? 'stop' : 'microphone'} color={isRecording ? palette.white : palette.ink} size={22} />
+            </Pressable>
+            <Pressable style={[styles.sendBtn, (isTyping || isRecording) && { opacity: 0.4 }]} onPress={handleSend} disabled={isTyping || isRecording}>
               <Ico name="arrow-up" color={palette.ink} size={24} />
             </Pressable>
           </View>
         </View>
-      </SafeAreaView>
+      </View>
     </View>
   );
 }
@@ -636,32 +887,107 @@ function ArchiveModal({ card, onClose, onBlueprint, onBazaari }) {
   );
 }
 
+// ─── HISTORY MODAL ───────────────────────────────────────────
+
+function HistoryModal({ onClose }) {
+  const [sessions, setSessions] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/sessions`, { headers: { 'ngrok-skip-browser-warning': '1' } })
+      .then(r => r.json())
+      .then(data => { setSessions(Array.isArray(data) ? data : []); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
+  return (
+    <View style={[styles.aiOverlay, { backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 200 }]}>
+      <SafeAreaView style={{ flex: 1, justifyContent: 'flex-end' }}>
+        <View style={{ backgroundColor: palette.paper, maxHeight: '75%', borderTopWidth: 3, borderColor: palette.ink }}>
+          <View style={[styles.aiHeader, { borderBottomWidth: 2, borderColor: palette.ink }]}>
+            <Text style={styles.aiHeaderTitle}>PAST CHATS</Text>
+            <Pressable onPress={onClose}><Ico name="close" size={28} /></Pressable>
+          </View>
+          <ScrollView>
+            {loading ? (
+              <ActivityIndicator color={palette.ink} style={{ margin: 32 }} />
+            ) : sessions.length === 0 ? (
+              <View style={{ padding: 24, alignItems: 'center' }}>
+                <Text style={{ color: palette.mute, fontSize: 14 }}>No past chats yet.</Text>
+              </View>
+            ) : sessions.map(s => (
+              <View key={s.id} style={{ padding: 16, borderBottomWidth: 1, borderColor: palette.kraft }}>
+                <Text style={{ fontWeight: '900', fontSize: 14, color: palette.ink }} numberOfLines={1}>{s.title}</Text>
+                <Text style={{ fontSize: 11, color: palette.mute, marginTop: 2 }}>
+                  {s.message_count} message(s) · {new Date(s.updated_at).toLocaleDateString('en-IN')}
+                </Text>
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      </SafeAreaView>
+    </View>
+  );
+}
+
 // ─── MAIN APP ────────────────────────────────────────────────
 
 export default function JugaadMobileApp() {
   const [activeTab, setActiveTab] = useState('workshop');
   const [budget, setBudget] = useState(500);
-  const [scannedImage, setScannedImage] = useState(null);
+  const [scannedImage, setScannedImage] = useState(null);       // URI for display
+  const [scannedImageB64, setScannedImageB64] = useState(null); // base64 for API
   const [aiVisible, setAiVisible] = useState(false);
   const [blueprint, setBlueprint] = useState(null);
   const [bazaari, setBazaari] = useState(null);
   const [archiveCard, setArchiveCard] = useState(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [toast, setToast] = useState('');
+
+  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 2500); };
 
   const openCamera = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) return;
-    const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [4, 3], quality: 0.8 });
-    if (!result.canceled && result.assets?.[0]?.uri) setScannedImage(result.assets[0].uri);
+    const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [4, 3], quality: 0.6, base64: true });
+    if (!result.canceled && result.assets?.[0]) {
+      setScannedImage(result.assets[0].uri);
+      setScannedImageB64(result.assets[0].base64 || null);
+    }
   };
 
   const openGallery = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({ allowsEditing: true, aspect: [4, 3], quality: 0.8 });
-    if (!result.canceled && result.assets?.[0]?.uri) setScannedImage(result.assets[0].uri);
+    const result = await ImagePicker.launchImageLibraryAsync({ allowsEditing: true, aspect: [4, 3], quality: 0.6, base64: true });
+    if (!result.canceled && result.assets?.[0]) {
+      setScannedImage(result.assets[0].uri);
+      setScannedImageB64(result.assets[0].base64 || null);
+    }
   };
 
   const handleSolution = (solution) => {
     setBlueprint(solution);
     setBazaari({ title: solution.title, materials: solution.materials, total_cost_inr: solution.total_cost_inr });
+  };
+
+  const handleAiClose = () => setAiVisible(false);
+
+  const handleSaveToArchive = async (solution, sessionId) => {
+    try {
+      const card = {
+        session_id: sessionId,
+        title: solution.title || 'Jugaad Solution',
+        status: 'SUCCESS',
+        annotation: `"${(solution.expected_outcome || solution.summary || '').slice(0, 100)}"`,
+        image: '',
+        solution_json: JSON.stringify({ solution }),
+      };
+      const res = await fetch(`${API_BASE}/api/archive`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '1' },
+        body: JSON.stringify(card),
+      });
+      showToast(res.ok ? 'Saved to archive ✓' : 'Save failed');
+    } catch { showToast('Save failed'); }
   };
 
   const handleLoadBlueprint = (solution) => {
@@ -702,6 +1028,10 @@ export default function JugaadMobileApp() {
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor={palette.paper} />
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
       <View style={styles.root}>
         <View style={styles.header}>
           <Pressable style={styles.headerIcon}><Ico name="menu" size={28} /></Pressable>
@@ -725,13 +1055,28 @@ export default function JugaadMobileApp() {
           ))}
         </View>
 
+        {/* Toast */}
+        {!!toast && (
+          <View style={{ position: 'absolute', bottom: 100, alignSelf: 'center', backgroundColor: palette.ink, paddingHorizontal: 18, paddingVertical: 8, borderRadius: 20, zIndex: 999 }}>
+            <Text style={{ color: palette.white, fontSize: 13, fontWeight: '700' }}>{toast}</Text>
+          </View>
+        )}
+
         <AIHub
           visible={aiVisible}
-          onClose={() => setAiVisible(false)}
+          onClose={handleAiClose}
           onSolution={handleSolution}
           budget={budget}
           scannedImage={scannedImage}
+          scannedImageB64={scannedImageB64}
+          onSaveToArchive={handleSaveToArchive}
+          onShowHistory={() => setShowHistory(true)}
         />
+
+        {/* History Modal — fetches from DB */}
+        {showHistory && (
+          <HistoryModal onClose={() => setShowHistory(false)} />
+        )}
 
         {archiveCard && (
           <ArchiveModal
@@ -742,6 +1087,7 @@ export default function JugaadMobileApp() {
           />
         )}
       </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -834,15 +1180,20 @@ const styles = StyleSheet.create({
   archiveTitle: { fontSize: 14, fontWeight: '900', color: palette.ink },
   archiveDate: { fontSize: 11, color: palette.mute, marginTop: 3 },
   aiOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: palette.paper, zIndex: 100 },
-  aiHeader: { height: 64, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderColor: palette.grid },
-  aiHeaderTitle: { fontSize: 18, fontWeight: '900' },
+  aiHeader: { height: 56, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderColor: palette.grid },
+  aiHeaderTitle: { flex: 1, fontSize: 16, fontWeight: '900', textAlign: 'center' },
+  langRow: { flexDirection: 'row', gap: 6, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: palette.paper2, borderBottomWidth: 1, borderColor: palette.grid },
+  langChip: { paddingHorizontal: 12, paddingVertical: 5, borderWidth: 1.5, borderColor: palette.ink, borderRadius: 20 },
+  langChipActive: { backgroundColor: palette.ink },
+  langChipText: { fontSize: 12, fontWeight: '900', color: palette.ink },
+  langChipTextActive: { color: palette.white },
   msgBubble: { maxWidth: '85%', padding: 12, borderRadius: 4, marginBottom: 12 },
   userBubble: { alignSelf: 'flex-end', backgroundColor: palette.ink },
   assistantBubble: { alignSelf: 'flex-start', backgroundColor: palette.white, borderWidth: 1.5, borderColor: palette.ink },
   msgText: { fontSize: 15, lineHeight: 22 },
   userMsgText: { color: palette.white },
   assistantMsgText: { color: palette.ink },
-  inputContainer: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: palette.paper, padding: 12, borderTopWidth: 1, borderColor: palette.grid },
+  inputContainer: { backgroundColor: palette.paper, padding: 12, borderTopWidth: 1, borderColor: palette.grid },
   inputWrapper: { flexDirection: 'row', backgroundColor: palette.white, borderWidth: 2, borderColor: palette.ink, borderRadius: 4, paddingHorizontal: 16, paddingVertical: 8, alignItems: 'center' },
   chatInput: { flex: 1, fontSize: 16, maxHeight: 100, color: palette.ink },
   sendBtn: { width: 40, height: 40, backgroundColor: palette.yellow, borderRadius: 4, alignItems: 'center', justifyContent: 'center', marginLeft: 8 },

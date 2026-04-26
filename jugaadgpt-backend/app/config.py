@@ -20,8 +20,12 @@ class Settings(BaseSettings):
     whatsapp_access_token: str = ""                  # permanent token from Meta App
     whatsapp_phone_number_id: str = ""               # from WhatsApp > API Setup in Meta dashboard
 
-    # Sarvam AI (Indian TTS)
+    # Sarvam AI (Indian TTS — web)
     sarvam_api_key: str = ""
+
+    # ElevenLabs (mobile TTS)
+    elevenlabs_api_key: str = ""
+    elevenlabs_voice_id: str = "pNInz6obpgDQGcFmaJgB"  # Adam — change in .env to any voice
 
     # Gemini Imagen (cookie-based, NID value from browser)
     gemini_cookie: str = ""

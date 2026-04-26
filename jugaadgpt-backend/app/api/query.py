@@ -10,12 +10,11 @@ import json
 import time
 from datetime import date
 
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, File, UploadFile
 from fastapi.responses import Response, StreamingResponse
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.db import get_db
+from app.db import AsyncSessionLocal
 from app.pipeline.extractor import extract_constraints
 from app.pipeline.generator import generate_solution, generate_solution_stream
 from app.pipeline.retriever import retrieve_cases
@@ -48,7 +47,7 @@ MAX_RETRIES = 2
 
 
 @router.post("/query")
-async def query(request: QueryRequest, db: AsyncSession = Depends(get_db)):
+async def query(request: QueryRequest):
     async def event_stream():
         start = time.monotonic()
         full_solution_text = ""
@@ -84,8 +83,11 @@ async def query(request: QueryRequest, db: AsyncSession = Depends(get_db)):
                 return
 
             # Step 3: Retrieve relevant cases
+            # Session is managed here (not via Depends) — StreamingResponse returns immediately
+            # so Depends(get_db) would close the session before the generator finishes.
             yield _sse("status", "Searching jugaad case library...")
-            cases = await retrieve_cases(constraints, db)
+            async with AsyncSessionLocal() as db:
+                cases = await retrieve_cases(constraints, db)
 
             # Step 4: Generate solution with retry loop
             solution = None
@@ -259,6 +261,42 @@ async def text_to_speech(body: dict):
     except Exception as exc:
         _log.warning("Sarvam TTS failed: %s", exc)
         return Response(status_code=204)
+
+
+@router.post("/tts-b64")
+async def tts_elevenlabs(body: dict):
+    """
+    Mobile TTS: text → base64 MP3 via ElevenLabs multilingual.
+    Body: {"text": "...", "lang": "hinglish|english|hindi"}
+    Returns: {"audio_base64": "<mp3 base64>" | ""}
+    """
+    import base64
+    import httpx as _httpx
+
+    text = (body.get("text") or "").strip()
+    if not text or not settings.elevenlabs_api_key:
+        return {"audio_base64": ""}
+
+    try:
+        async with _httpx.AsyncClient(timeout=25) as client:
+            resp = await client.post(
+                f"https://api.elevenlabs.io/v1/text-to-speech/{settings.elevenlabs_voice_id}",
+                headers={
+                    "xi-api-key": settings.elevenlabs_api_key,
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "text": text[:2500],
+                    "model_id": "eleven_multilingual_v2",
+                    "voice_settings": {"stability": 0.45, "similarity_boost": 0.80, "style": 0.3},
+                },
+            )
+        if resp.status_code == 200:
+            return {"audio_base64": base64.b64encode(resp.content).decode()}
+        logger.warning("ElevenLabs TTS %s: %s", resp.status_code, resp.text[:200])
+    except Exception as exc:
+        logger.warning("ElevenLabs TTS failed: %s", exc)
+    return {"audio_base64": ""}
 
 
 @router.post("/generate-image")

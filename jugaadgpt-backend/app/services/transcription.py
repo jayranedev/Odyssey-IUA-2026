@@ -1,6 +1,5 @@
 """
-Audio transcription via Sarvam AI Saaras (primary) with Groq Whisper fallback.
-Saaras is purpose-built for Indian languages — Hindi, Hinglish, code-switching.
+Audio transcription: ElevenLabs Scribe (primary) → Sarvam Saaras → Groq Whisper fallback.
 """
 
 import io
@@ -12,7 +11,6 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Groq fallback (still used by /api/tts Groq path if needed)
 _groq_client = None
 
 
@@ -27,11 +25,39 @@ def get_groq_client():
 async def transcribe_audio(audio_bytes: bytes, mime_type: str = "audio/ogg") -> str:
     """
     Transcribe audio bytes to text.
-    Uses Sarvam Saaras if key is configured, otherwise falls back to Groq Whisper.
+    Priority: ElevenLabs Scribe → Sarvam Saaras → Groq Whisper.
     """
+    if settings.elevenlabs_api_key:
+        try:
+            return await _transcribe_elevenlabs(audio_bytes, mime_type)
+        except Exception as e:
+            logger.warning("ElevenLabs STT failed: %s — trying Sarvam", e)
     if settings.sarvam_api_key:
         return await _transcribe_sarvam(audio_bytes, mime_type)
     return await _transcribe_groq(audio_bytes, mime_type)
+
+
+async def _transcribe_elevenlabs(audio_bytes: bytes, mime_type: str) -> str:
+    ext_map = {
+        "audio/ogg": "ogg", "audio/mpeg": "mp3", "audio/mp4": "mp4",
+        "audio/wav": "wav", "audio/webm": "webm", "audio/m4a": "m4a",
+        "audio/opus": "ogg",
+    }
+    ext = ext_map.get(mime_type, "webm")
+    async with httpx.AsyncClient(timeout=30) as client:
+        resp = await client.post(
+            "https://api.elevenlabs.io/v1/speech-to-text",
+            headers={"xi-api-key": settings.elevenlabs_api_key},
+            files={"file": (f"audio.{ext}", io.BytesIO(audio_bytes), mime_type)},
+            data={"model_id": "scribe_v1"},
+        )
+    if resp.status_code != 200:
+        raise RuntimeError(f"ElevenLabs STT {resp.status_code}: {resp.text[:200]}")
+    text = resp.json().get("text", "").strip()
+    if not text:
+        raise RuntimeError("ElevenLabs STT returned empty transcript")
+    logger.info("ElevenLabs STT transcript: %s", text[:100])
+    return text
 
 
 async def _transcribe_sarvam(audio_bytes: bytes, mime_type: str) -> str:

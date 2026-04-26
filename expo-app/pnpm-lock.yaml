@@ -14,6 +14,9 @@ importers:
       expo:
         specifier: ~54.0.33
         version: 54.0.33(@babel/core@7.29.0)(@expo/dom-webview@55.0.5)(react-native@0.81.4(@babel/core@7.29.0)(react@19.1.0))(react@19.1.0)
+      expo-av:
+        specifier: ^15.1.7
+        version: 15.1.7(expo@54.0.33)(react-native@0.81.4(@babel/core@7.29.0)(react@19.1.0))(react@19.1.0)
       expo-image-picker:
         specifier: ~16.1.4
         version: 16.1.4(expo@54.0.33)
@@ -1286,6 +1289,17 @@ packages:
       expo: '*'
       react: '*'
       react-native: '*'
+
+  expo-av@15.1.7:
+    resolution: {integrity: sha512-NC+JR+65sxXfQN1mOHp3QBaXTL2J+BzNwVO27XgUEc5s9NaoBTdHWElYXrfxvik6xwytZ+a7abrqfNNgsbQzsA==}
+    peerDependencies:
+      expo: '*'
+      react: '*'
+      react-native: '*'
+      react-native-web: '*'
+    peerDependenciesMeta:
+      react-native-web:
+        optional: true
 
   expo-constants@18.0.13:
     resolution: {integrity: sha512-FnZn12E1dRYKDHlAdIyNFhBurKTS3F9CrfrBDJI5m3D7U17KBHMQ6JEfYlSj7LG7t+Ulr+IKaj58L1k5gBwTcQ==}
@@ -4238,6 +4252,12 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
       - typescript
+
+  expo-av@15.1.7(expo@54.0.33)(react-native@0.81.4(@babel/core@7.29.0)(react@19.1.0))(react@19.1.0):
+    dependencies:
+      expo: 54.0.33(@babel/core@7.29.0)(@expo/dom-webview@55.0.5)(react-native@0.81.4(@babel/core@7.29.0)(react@19.1.0))(react@19.1.0)
+      react: 19.1.0
+      react-native: 0.81.4(@babel/core@7.29.0)(react@19.1.0)
 
   expo-constants@18.0.13(expo@54.0.33)(react-native@0.81.4(@babel/core@7.29.0)(react@19.1.0)):
     dependencies:
