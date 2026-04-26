@@ -1317,6 +1317,38 @@ quantization = ["ml_dtypes"]
 symbolic = ["sympy"]
 
 [[package]]
+name = "onnxruntime-gpu"
+version = "1.25.0"
+description = "ONNX Runtime is a runtime accelerator for Machine Learning models"
+optional = false
+python-versions = ">=3.11"
+groups = ["main"]
+files = [
+    {file = "onnxruntime_gpu-1.25.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:e8625bb31ee2d88524414e7458cc604f4f958f323ef8832cc00882f6cd42b9a1"},
+    {file = "onnxruntime_gpu-1.25.0-cp311-cp311-win_amd64.whl", hash = "sha256:2e702159a025aa5c69f0b747adf9a451e0c9e4b20120163a918c8459d3171b87"},
+    {file = "onnxruntime_gpu-1.25.0-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:2f0c36c63c8b0eb4091f2567067f480f66f0aedc189eb009545c98ce7e919056"},
+    {file = "onnxruntime_gpu-1.25.0-cp312-cp312-win_amd64.whl", hash = "sha256:61178cc4d84f59861714554531e01cccbd33ddf13cc0e87a3adea13b24d297ce"},
+    {file = "onnxruntime_gpu-1.25.0-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:e462eb13ee9955117baec4f518916c1e7cb1a96001114105632bc6d454c6aee6"},
+    {file = "onnxruntime_gpu-1.25.0-cp313-cp313-win_amd64.whl", hash = "sha256:9a3682158e5e911385252eb95d6332b6f525972746c582e10f8a78213b39e624"},
+    {file = "onnxruntime_gpu-1.25.0-cp313-cp313t-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:8514b92c5929c953850090d823d018770cba2a971efab5f8f69a3c4280cdc632"},
+    {file = "onnxruntime_gpu-1.25.0-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:ffe9df4016b061ec3a5565a4fc08cdb86808cd8b9c255c42301066c0c24a81b5"},
+    {file = "onnxruntime_gpu-1.25.0-cp314-cp314-win_amd64.whl", hash = "sha256:2173b71631208177fe704ce2d92eac3acbf758285327247ea40a31a9f0bcc073"},
+    {file = "onnxruntime_gpu-1.25.0-cp314-cp314t-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:8576c721c600cc669717a2ae49af30fdfff230480099653adc7b79d58a240852"},
+]
+
+[package.dependencies]
+flatbuffers = "*"
+numpy = ">=1.21.6"
+packaging = "*"
+protobuf = "*"
+
+[package.extras]
+cuda = ["nvidia-cuda-nvrtc-cu12 (>=12.0,<13.0)", "nvidia-cuda-runtime-cu12 (>=12.0,<13.0)", "nvidia-cufft-cu12 (>=11.0,<12.0)", "nvidia-curand-cu12 (>=10.0,<11.0)"]
+cudnn = ["nvidia-cudnn-cu12 (>=9.0,<10.0)"]
+quantization = ["ml-dtypes"]
+symbolic = ["sympy"]
+
+[[package]]
 name = "packaging"
 version = "26.2"
 description = "Core utilities for Python packages"
@@ -2648,4 +2680,4 @@ dev = ["black (>=19.3b0) ; python_version >= \"3.6\"", "pytest (>=4.6.2)"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "43f3a2b8bed1fc2a973cebb003eae5668b9872612e9aa605abaf8be3f8b5337d"
+content-hash = "7274408d0cb5ba1621ee8eb7550d366d75e0be48af78fda33023ebbbfa9a2e7d"
