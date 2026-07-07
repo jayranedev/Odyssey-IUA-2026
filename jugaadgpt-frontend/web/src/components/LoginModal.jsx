@@ -44,8 +44,10 @@ const LoginModal = () => {
       onClick={closeLogin}
     >
       <div
-        className="bg-white border-2 border-black shadow-jugaad-lg"
         style={{ 
+          background: 'var(--jg2-paper)',
+          border: '2px solid var(--jg2-ink)',
+          boxShadow: '4px 4px 0 var(--jg2-ink)',
           maxWidth: 380, width: '100%', padding: 32, position: 'relative',
           boxSizing: 'border-box', display: 'flex', flexDirection: 'column'
         }}
