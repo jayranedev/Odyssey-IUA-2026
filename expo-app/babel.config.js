@@ -6,6 +6,7 @@ module.exports = function (api) {
       {
         test: /node_modules/,
         plugins: [
+          '@babel/plugin-transform-typescript',
           ['@babel/plugin-transform-class-properties', { loose: false }],
           ['@babel/plugin-transform-private-methods', { loose: false }],
           ['@babel/plugin-transform-private-property-in-object', { loose: false }]
