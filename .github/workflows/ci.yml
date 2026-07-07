@@ -34,7 +34,7 @@ jobs:
           node-version: "20"
       - name: Build root web app
         env:
-          VITE_API_URL: https://api.example.com
+          VITE_API_URL: https://odyssey-iua-2026-1.onrender.com
         run: |
           npm ci --no-audit --no-fund
           npm run build

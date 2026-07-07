@@ -1,14 +1,14 @@
 # Free-tier keep-alive.
 #
-# - Every 10 minutes: GET $KEEPALIVE_API_URL/health so the Render free service
-#   never idles out.
+# - Every 5 minutes: GET $KEEPALIVE_API_URL/health so the Render free service
+#   is much less likely to idle out.
 # - Daily: GET $KEEPALIVE_API_URL/health/db (runs SELECT 1 on Postgres) so the
 #   Supabase free-tier project is never paused for inactivity.
 #
 # ⚠️ AFTER PUSHING, YOU MUST:
 #   1. Enable GitHub Actions for the repo (Settings → Actions → Allow).
-#   2. Add repo secret KEEPALIVE_API_URL = https://odyssey-iua-2026-1.onrender.com
-#      (no trailing slash), or your actual Render service URL.
+#   2. Optional: add repo secret or variable KEEPALIVE_API_URL to override the
+#      default Render URL below.
 # Scheduled workflows on free GitHub are best-effort (may lag a few minutes)
 # and are auto-disabled after 60 days without repo activity — a monthly commit
 # or a UptimeRobot monitor keeps them alive.
@@ -17,7 +17,7 @@ name: keepalive
 
 on:
   schedule:
-    - cron: "*/10 * * * *"   # API ping every 10 minutes
+    - cron: "*/5 * * * *"    # API ping every 5 minutes
     - cron: "17 3 * * *"     # DB ping daily at 03:17 UTC
   workflow_dispatch: {}
 
@@ -25,13 +25,15 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     timeout-minutes: 3
+    env:
+      KEEPALIVE_API_URL: ${{ secrets.KEEPALIVE_API_URL || vars.KEEPALIVE_API_URL || 'https://odyssey-iua-2026-1.onrender.com' }}
     steps:
       - name: Ping API /health
         if: github.event.schedule != '17 3 * * *'
         run: |
-          curl -fsS --max-time 30 "${{ secrets.KEEPALIVE_API_URL }}/health" && echo " ok"
+          curl -fsS --retry 3 --retry-delay 10 --max-time 30 "$KEEPALIVE_API_URL/health" && echo " ok"
 
       - name: Ping DB /health/db (keeps Supabase awake)
         if: github.event.schedule == '17 3 * * *' || github.event_name == 'workflow_dispatch'
         run: |
-          curl -fsS --max-time 60 "${{ secrets.KEEPALIVE_API_URL }}/health/db" && echo " ok"
+          curl -fsS --retry 3 --retry-delay 10 --max-time 60 "$KEEPALIVE_API_URL/health/db" && echo " ok"

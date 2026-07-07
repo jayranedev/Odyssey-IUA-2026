@@ -13,7 +13,7 @@
       "**/*"
     ],
     "extra": {
-      "apiBaseUrl": "https://api.example.com",
+      "apiBaseUrl": "https://odyssey-iua-2026-1.onrender.com",
       "supabaseUrl": "",
       "supabaseAnonKey": ""
     },

@@ -8,7 +8,7 @@ Edit `expo-app/app.json` → `expo.extra`:
 
 ```json
 "extra": {
-  "apiBaseUrl": "https://api.yourdomain.com",
+  "apiBaseUrl": "https://odyssey-iua-2026-1.onrender.com",
   "supabaseUrl": "https://<project-ref>.supabase.co",
   "supabaseAnonKey": "<anon key>"
 }

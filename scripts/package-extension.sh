@@ -2,7 +2,7 @@
 # Build the browser extension with a production API URL and zip it for distribution.
 #
 # Usage:
-#   VITE_API_URL=https://api.yourdomain.com VITE_WEB_APP_URL=https://app.yourdomain.com \
+#   VITE_API_URL=https://odyssey-iua-2026-1.onrender.com VITE_WEB_APP_URL=https://app.yourdomain.com \
 #     ./scripts/package-extension.sh
 #
 # Output: dist-packages/jugaadgpt-extension.zip
@@ -12,7 +12,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 EXT_DIR="$ROOT/jugaadgpt-frontend/extension"
 OUT_DIR="$ROOT/dist-packages"
 
-: "${VITE_API_URL:=http://localhost:8000}"
+: "${VITE_API_URL:=https://odyssey-iua-2026-1.onrender.com}"
 : "${VITE_WEB_APP_URL:=http://localhost:5173}"
 
 echo "Building extension with API=$VITE_API_URL WEB=$VITE_WEB_APP_URL"

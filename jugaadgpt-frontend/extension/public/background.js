@@ -1,4 +1,4 @@
-const DEFAULT_BACKEND_URL = 'http://localhost:8000';
+const DEFAULT_BACKEND_URL = 'https://odyssey-iua-2026-1.onrender.com';
 
 function normalizeLang(lang) {
   if (lang === 'hindi') return 'hindi';

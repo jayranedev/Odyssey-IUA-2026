@@ -1,7 +1,7 @@
 console.log('JugaadGPT extension loaded in page.');
 
 const MAX_MESSAGE_LENGTH = 1900;
-const DEFAULT_BACKEND_URL = 'http://localhost:8000';
+const DEFAULT_BACKEND_URL = 'https://odyssey-iua-2026-1.onrender.com';
 const SEARCH_HOST_PATTERNS = [
   /(^|\.)google\./i,
   /(^|\.)bing\.com$/i,

@@ -71,11 +71,16 @@ Order matters: **Supabase → Upstash → Render → migrations from your machin
    SUPABASE_JWT_SECRET   = ...
    ENVIRONMENT           = production
    CORS_ORIGINS          = https://<webapp>.vercel.app,https://<landing>.vercel.app
+   KEEPALIVE_ENABLED     = true
+   KEEPALIVE_URL         = (optional; Render injects RENDER_EXTERNAL_URL)
    SENTRY_DSN            = (optional)
    ```
 7. Deploy. Your API URL is your Render service URL.
 8. Smoke test: `curl https://<app>.render.com/health` → `{"status":"ok"}` and
    `curl https://<app>.render.com/health/db` → `{"status":"ok","db":"ok"}`.
+9. Free Render web services can still restart or cold-start. The backend
+   self-pinger plus GitHub Action keep-alive prevents normal idle spin-down,
+   but it is not a paid uptime SLA.
 
 ## 4. Migrations + data — run FROM YOUR LOCAL MACHINE against Supabase
 
@@ -133,11 +138,13 @@ final origins to the backend `CORS_ORIGINS` on Render.
 After pushing:
 1. Repo Settings → Actions → allow workflows.
 2. Secrets → Actions → add:
-   - `KEEPALIVE_API_URL` = `https://<app>.render.com` (no trailing slash)
    - `DATABASE_URL` = the **session pooler** URL with `?sslmode=require` (for backups)
+   - Optional override: `KEEPALIVE_API_URL` = `https://<app>.render.com`
+     (no trailing slash). If missing, `keepalive.yml` uses
+     `https://odyssey-iua-2026-1.onrender.com`.
 3. Workflows included:
-    - `keepalive.yml` — /health every 10 min (Render never idles),
-     /health/db daily (Supabase never pauses).
+    - `keepalive.yml` — /health every 5 min (prevents normal Render idle
+     spin-down), /health/db daily (Supabase never pauses).
    - `backup.yml` — weekly `pg_dump` → gzipped artifact, 90-day retention,
      manual trigger available.
    - `ci.yml` — ruff + pytest + web build on every push/PR.

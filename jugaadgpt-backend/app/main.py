@@ -59,6 +59,7 @@ _QUERY_LIMIT = parse_limit("10/minute")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    keepalive_task: asyncio.Task | None = None
     token_ok = bool(settings.whatsapp_access_token)
     logger.info(
         "WhatsApp config — access_token: %s, phone_number_id: %s",
@@ -83,8 +84,23 @@ async def lifespan(app: FastAPI):
         )
     # Best-effort: log which free-tier models are live right now (never blocks startup)
     from app.llm.router import startup_model_check
-    asyncio.get_event_loop().create_task(startup_model_check())
-    yield
+    asyncio.create_task(startup_model_check())
+
+    from app.services.keepalive import keepalive_loop, should_start_keepalive
+    if should_start_keepalive():
+        keepalive_task = asyncio.create_task(keepalive_loop())
+    else:
+        logger.info("Backend keepalive disabled for this environment")
+
+    try:
+        yield
+    finally:
+        if keepalive_task:
+            keepalive_task.cancel()
+            try:
+                await keepalive_task
+            except asyncio.CancelledError:
+                pass
 
 
 app = FastAPI(
