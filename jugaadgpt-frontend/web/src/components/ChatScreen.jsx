@@ -261,7 +261,8 @@ const SolutionBubble = ({ solution, saved, warnings, onSave }) => {
       </div>
     </div>
   </div>
-);
+  );
+};
 
 const ClarificationBubble = ({ question, onReply }) => {
   const [ans, setAns] = useState('');
