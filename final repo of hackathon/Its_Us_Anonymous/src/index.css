@@ -1,0 +1,186 @@
+@import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=JetBrains+Mono:wght@400;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  /* JugaadGPT design tokens */
+  --jg2-paper: #F8F5EE;
+  --jg2-ink: #0E1B2D;
+  --jg2-graphite: #4A5568;
+  --jg2-mute: #828B99;
+  --jg2-yellow: #F4C61E;
+  --jg2-yellow-deep: #D4A80A;
+  --jg2-brick: #C24F2C;
+  --jg2-brick-soft: #FDE8E1;
+  --jg2-kraft-light: #EBDDC3;
+  --jg2-kraft: #DFCCA9;
+  --jg2-kraft-deep: #C1A87D;
+  --jg2-card: #FFFFFF;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+/* ── Animations ─────────────────────────────────────────────── */
+
+@keyframes jg-pulse {
+  0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes jg-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@keyframes jg-toast {
+  0% { opacity: 0; transform: translateY(8px) translateX(-50%); }
+  15%, 85% { opacity: 1; transform: translateY(0) translateX(-50%); }
+  100% { opacity: 0; transform: translateY(0) translateX(-50%); }
+}
+
+@keyframes jg-fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Chat UI shared classes ─────────────────────────────────── */
+
+.jg2-btn-yellow {
+  background: var(--jg2-yellow);
+  color: var(--jg2-ink);
+  border: 1.5px solid var(--jg2-ink);
+  padding: 8px 16px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 var(--jg2-ink);
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+
+.jg2-btn-yellow:active {
+  transform: translate(2px, 2px);
+  box-shadow: 0 0 0 var(--jg2-ink);
+}
+
+.jg2-btn-navy {
+  background: var(--jg2-ink);
+  color: var(--jg2-paper);
+  border: 1.5px solid var(--jg2-ink);
+  padding: 8px 16px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  text-transform: uppercase;
+  font-size: 13px;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 var(--jg2-yellow);
+  transition: transform 0.1s, box-shadow 0.1s;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.jg2-btn-navy:hover { background: #1a2d4a; }
+.jg2-btn-navy:active {
+  transform: translate(2px, 2px);
+  box-shadow: 0 0 0 var(--jg2-yellow);
+}
+
+.jg2-btn-navy:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: 2px 2px 0 var(--jg2-yellow);
+}
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 48;
+}
+
+.blueprint-grid {
+  background-image: 
+      linear-gradient(rgba(26, 75, 132, 0.2) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(26, 75, 132, 0.2) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.graph-paper {
+  background-color: #fbf9f4;
+  background-image: 
+      linear-gradient(#e5e7eb 1px, transparent 1px),
+      linear-gradient(90deg, #e5e7eb 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.corkboard {
+  background-color: #d2b48c;
+  background-image: radial-gradient(#bc9c73 10%, transparent 10%);
+  background-size: 8px 8px;
+}
+
+.tape-corner::before {
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  width: 30px;
+  height: 30px;
+  background: #A0A0A0;
+  transform: rotate(-45deg);
+  z-index: 10;
+  border: 1px solid #737781;
+}
+
+.tape-corner-tr::after {
+  content: '';
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  width: 30px;
+  height: 30px;
+  background: #1A4B84;
+  transform: rotate(45deg);
+  z-index: 10;
+  border: 1px solid #001c3b;
+}
+
+.tape-corner-tl::before {
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  width: 40px;
+  height: 15px;
+  background: #cbd5e1;
+  opacity: 0.8;
+  transform: rotate(-35deg);
+  border: 1px solid rgba(0,0,0,0.1);
+}
+
+.hand-drawn-circle {
+  border-radius: 48% 52% 55% 45% / 42% 58% 42% 58%;
+}
+
+.duct-tape-corner::before {
+  content: '';
+  position: absolute;
+  top: -5px;
+  left: -5px;
+  width: 30px;
+  height: 10px;
+  background: #94a3b8; /* Silver tape */
+  transform: rotate(-45deg);
+  box-shadow: 2px 2px 0 rgba(0,0,0,0.2);
+  z-index: 10;
+}

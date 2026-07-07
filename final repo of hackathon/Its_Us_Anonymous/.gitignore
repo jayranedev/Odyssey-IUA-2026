@@ -1,0 +1,6 @@
+node_modules
+v
+.env
+.env.example.env
+.npm-cache
+node_modules

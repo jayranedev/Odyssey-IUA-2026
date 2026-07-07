@@ -1,0 +1,324 @@
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+
+const BLUEPRINT_KEY = 'jg_blueprint';
+const BP_IMG_PREFIX = 'jg_bp_img_';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+const Blueprints = () => {
+  const [bp, setBp] = useState(null);
+  const [activeStep, setActiveStep] = useState(0);
+  const [schematicImg, setSchematicImg] = useState(null);
+  const [imgLoading, setImgLoading] = useState(false);
+
+  useEffect(() => {
+    const raw = localStorage.getItem(BLUEPRINT_KEY);
+    if (raw) {
+      try { setBp(JSON.parse(raw)); } catch { /* ignore */ }
+    }
+  }, []);
+
+  // Load or generate schematic image — DB-cached by title
+  useEffect(() => {
+    if (!bp) return;
+    let cancelled = false;
+
+    const run = async () => {
+      setSchematicImg(null);
+      setImgLoading(true);
+
+      // 1. Check DB cache first
+      try {
+        const dbRes = await fetch(`${API_BASE}/api/blueprint-image?title=${encodeURIComponent(bp.title)}`);
+        const { image_base64 } = await dbRes.json();
+        if (image_base64 && !cancelled) {
+          setSchematicImg(`data:image/png;base64,${image_base64}`);
+          setImgLoading(false);
+          return;
+        }
+      } catch { /* DB miss — generate fresh */ }
+
+      // 2. Generate new image
+      try {
+        const genRes = await fetch(`${API_BASE}/api/generate-image`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: `Technical blueprint schematic of: ${bp.title}. Engineering assembly diagram, cross-section view, hand-drawn illustration, blueprint paper style, no text`,
+          }),
+        });
+        const { base64 } = await genRes.json();
+        if (base64 && !cancelled) {
+          setSchematicImg(`data:image/png;base64,${base64}`);
+          // 3. Save to DB (fire and forget)
+          fetch(`${API_BASE}/api/blueprint-image`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: bp.title, image_base64: base64 }),
+          }).catch(() => {});
+        }
+      } catch { /* image generation failed silently */ }
+
+      if (!cancelled) setImgLoading(false);
+    };
+
+    run();
+    return () => { cancelled = true; };
+  }, [bp]);
+
+  const handlePrint = () => window.print();
+
+  const handleShare = () => {
+    if (!bp) return;
+    const steps = (bp.build_steps || []).slice(0, 5);
+    const more = (bp.build_steps || []).length - steps.length;
+    const lines = [
+      `📐 *${bp.title}*`,
+      bp.total_cost_inr > 0 ? `💰 Est. cost: ₹${bp.total_cost_inr.toLocaleString('en-IN')}` : null,
+      '',
+      '*Steps:*',
+      ...steps.map((s, i) => `${i + 1}. ${s.length > 80 ? s.slice(0, 77) + '...' : s}`),
+      more > 0 ? `_(+${more} more steps)_` : null,
+      bp.expected_outcome ? `\n✅ ${bp.expected_outcome.slice(0, 120)}` : null,
+      '\n_JugaadGPT — jugaad solutions for real problems_',
+    ].filter(Boolean);
+    window.open(`https://wa.me/?text=${encodeURIComponent(lines.join('\n'))}`, '_blank');
+  };
+
+  if (!bp) {
+    return (
+      <main className="max-w-5xl mx-auto px-margin mt-8 pb-32 blueprint-grid">
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center">
+          <div style={{ fontSize: 48 }}>📐</div>
+          <h1 className="font-display text-4xl text-primary uppercase">No Blueprint Loaded</h1>
+          <p className="font-body-md text-on-surface-variant max-w-md">
+            Get a solution in the Workshop, then tap <strong>"📐 Load Blueprint"</strong> on any solution to see the assembly steps here.
+          </p>
+          <Link
+            to="/"
+            className="inline-block mt-4 bg-primary text-white px-6 py-3 font-display text-sm uppercase tracking-wider border-2 border-on-background shadow-jugaad-black"
+          >
+            ← Go to Workshop
+          </Link>
+        </div>
+      </main>
+    );
+  }
+
+  const schematicId = 'BP-' + Math.abs(bp.title.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % 900 + 100) + '-IND';
+
+  return (
+    <main className="max-w-5xl mx-auto px-margin mt-8 pb-32 blueprint-grid">
+
+      {/* Title Section */}
+      <div className="mb-8">
+        <h1 className="font-display text-4xl md:text-5xl text-primary uppercase leading-tight">{bp.title}</h1>
+        <div className="flex flex-wrap items-center gap-2 mt-3">
+          <span className="bg-primary text-white px-3 py-1 text-xs font-bold font-display uppercase tracking-wider">
+            SCHEMATIC ID: {schematicId}
+          </span>
+          {bp.skill_check && (
+            <span className="bg-secondary-container text-on-secondary-container px-3 py-1 text-xs font-bold font-display uppercase">
+              SKILL: {bp.skill_check}
+            </span>
+          )}
+          {bp.total_cost_inr > 0 && (
+            <span className="bg-tertiary-fixed text-on-tertiary-fixed px-3 py-1 text-xs font-bold font-display uppercase border border-on-background">
+              COST: ₹{bp.total_cost_inr.toLocaleString('en-IN')}
+            </span>
+          )}
+        </div>
+        {bp.summary && (
+          <p className="mt-3 font-body-md text-on-surface-variant max-w-2xl leading-relaxed">{bp.summary}</p>
+        )}
+      </div>
+
+      {/* Schematic image */}
+      {(schematicImg || imgLoading) && (
+        <div className="mb-8 border-4 border-primary bg-primary-container p-2 shadow-jugaad-blue-lg relative max-w-2xl">
+          {imgLoading && !schematicImg ? (
+            <div className="flex items-center justify-center min-h-[220px] gap-3 text-primary">
+              <span className="material-symbols-outlined animate-spin">settings</span>
+              <span className="font-display text-sm uppercase tracking-widest">Generating schematic…</span>
+            </div>
+          ) : (
+            <img
+              src={schematicImg}
+              alt={`${bp.title} schematic`}
+              className="w-full grayscale brightness-110 contrast-110"
+            />
+          )}
+          <div className="absolute top-2 right-2 bg-primary text-white text-[9px] font-bold font-display uppercase px-2 py-0.5 tracking-widest">
+            AI Generated
+          </div>
+        </div>
+      )}
+
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-8 mb-10">
+
+        {/* Left: Steps */}
+        <div className="md:col-span-7 flex flex-col gap-4">
+          <div className="border-2 border-primary bg-surface-container-highest p-6 relative">
+            <h2 className="font-display text-2xl text-primary uppercase mb-6 border-b-2 border-primary pb-2 flex justify-between items-center">
+              Assembly Steps
+              <span className="material-symbols-outlined">build</span>
+            </h2>
+
+            {bp.build_steps.map((step, i) => {
+              const isActive = i === activeStep;
+              const isDone = i < activeStep;
+              return (
+                <button
+                  key={i}
+                  onClick={() => setActiveStep(i)}
+                  className="flex gap-4 mb-6 w-full text-left group"
+                  style={{ opacity: i > activeStep ? 0.45 : 1, transition: 'opacity 0.2s' }}
+                >
+                  <div className={`
+                    w-10 h-10 shrink-0 border-2 border-primary flex items-center justify-center font-black text-lg
+                    ${isActive ? 'bg-primary text-white' : isDone ? 'bg-primary/20 text-primary' : 'bg-white text-primary'}
+                    transition-colors
+                  `}>
+                    {isDone ? '✓' : i + 1}
+                  </div>
+                  <div className="flex-1">
+                    <div className={`font-display text-lg uppercase leading-tight ${isActive ? 'text-primary' : 'text-on-surface'}`}>
+                      Step {i + 1}
+                    </div>
+                    <p className="font-body-md text-on-surface-variant mt-1 leading-relaxed">{step}</p>
+                  </div>
+                </button>
+              );
+            })}
+
+            {/* Step controls */}
+            <div className="flex gap-3 mt-4 pt-4 border-t border-dashed border-outline-variant">
+              <button
+                disabled={activeStep === 0}
+                onClick={() => setActiveStep(s => s - 1)}
+                className="px-4 py-2 border-2 border-on-background font-display text-sm uppercase disabled:opacity-30 active:translate-x-0.5 active:translate-y-0.5 transition-transform"
+              >
+                ← Prev
+              </button>
+              <button
+                disabled={activeStep === bp.build_steps.length - 1}
+                onClick={() => setActiveStep(s => s + 1)}
+                className="px-4 py-2 bg-primary text-white border-2 border-on-background font-display text-sm uppercase disabled:opacity-30 active:translate-x-0.5 active:translate-y-0.5 transition-transform"
+              >
+                Next →
+              </button>
+              <span className="ml-auto self-center font-data-tabular text-xs text-outline">
+                {activeStep + 1} / {bp.build_steps.length}
+              </span>
+            </div>
+          </div>
+
+          {/* Failure modes */}
+          {bp.failure_modes?.length > 0 && (
+            <div className="bg-error-container border-2 border-error p-4">
+              <div className="font-display text-sm uppercase text-error mb-2 flex items-center gap-2">
+                <span className="material-symbols-outlined text-base">warning</span>
+                Common Failure Modes
+              </div>
+              <ul className="space-y-1">
+                {bp.failure_modes.map((f, i) => (
+                  <li key={i} className="font-body-md text-on-error-container text-sm flex gap-2">
+                    <span className="text-error shrink-0">•</span>{f}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Maintenance */}
+          {bp.maintenance && (
+            <div className="bg-secondary-container border-2 border-on-secondary-container p-4">
+              <div className="font-display text-sm uppercase text-on-secondary-container mb-1 flex items-center gap-2">
+                <span className="material-symbols-outlined text-base">build_circle</span>
+                Maintenance
+              </div>
+              <p className="font-body-md text-on-secondary-container text-sm">{bp.maintenance}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Right: Materials + outcome */}
+        <div className="md:col-span-5 flex flex-col gap-6">
+
+          {/* Materials */}
+          {bp.materials?.length > 0 && (
+            <div className="bg-primary text-white p-5 border-2 border-on-background shadow-jugaad-black">
+              <p className="text-xs font-bold font-display uppercase mb-3 opacity-80 tracking-widest">
+                Materials Needed
+              </p>
+              <ul className="font-data-tabular space-y-2">
+                {bp.materials.map((m, i) => (
+                  <li key={i} className={`flex justify-between gap-4 ${i > 0 ? 'border-t border-white/20 pt-2' : ''}`}>
+                    <span className="text-sm leading-snug">{m.item} <span className="opacity-60 text-xs">({m.quantity})</span></span>
+                    <span className="text-sm shrink-0 opacity-90">₹{m.cost_inr?.toFixed(0)}</span>
+                  </li>
+                ))}
+                <li className="border-t border-white/40 pt-2 flex justify-between font-bold">
+                  <span>Total</span>
+                  <span>₹{bp.total_cost_inr?.toLocaleString('en-IN')}</span>
+                </li>
+              </ul>
+            </div>
+          )}
+
+          {/* Expected outcome */}
+          {bp.expected_outcome && (
+            <div className="bg-tertiary-fixed border-2 border-on-background p-5 shadow-jugaad-black">
+              <div className="font-display text-sm uppercase mb-2 flex items-center gap-2">
+                <span className="material-symbols-outlined text-base">check_circle</span>
+                Expected Result
+              </div>
+              <p className="font-body-md text-sm leading-relaxed">{bp.expected_outcome}</p>
+            </div>
+          )}
+
+          {/* Quick hint */}
+          <div className="relative p-4 bg-white border-2 border-dashed border-outline-variant">
+            <span className="font-annotation text-xs text-secondary italic leading-relaxed">
+              Click each step to track your progress. Steps grey out as you advance.
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* CTA buttons */}
+      <div className="mb-24 flex flex-wrap gap-4 print:hidden">
+        <button
+          onClick={handlePrint}
+          className="flex-1 min-w-[180px] bg-white text-on-background py-4 font-black font-display uppercase text-lg shadow-jugaad-black border-2 border-on-background flex items-center justify-center gap-2 active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all"
+        >
+          <span className="material-symbols-outlined">print</span>
+          Print Blueprint
+        </button>
+        <button
+          onClick={handleShare}
+          className="flex-1 min-w-[180px] bg-[#FFD700] text-on-background py-4 font-black font-display uppercase text-lg shadow-jugaad-blue-lg border-2 border-on-background flex items-center justify-center gap-2 active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all"
+        >
+          <span className="material-symbols-outlined">share</span>
+          Share Blueprint
+        </button>
+        <Link
+          to="/chat"
+          className="flex-1 min-w-[180px] bg-primary text-white py-4 font-black font-display uppercase text-lg shadow-jugaad-blue-lg border-2 border-on-background flex items-center justify-center gap-2 active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all no-underline"
+        >
+          <span className="material-symbols-outlined">chat</span>
+          Back to Chat
+        </Link>
+      </div>
+
+      <style>{`
+        @media print {
+          nav, header { display: none !important; }
+        }
+      `}</style>
+    </main>
+  );
+};
+
+export default Blueprints;
