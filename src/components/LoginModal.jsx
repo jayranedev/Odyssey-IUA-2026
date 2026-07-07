@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { X, Mail, LogIn } from 'lucide-react';
+import { X, Mail } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
-// Login modal — Google OAuth + email OTP, styled to the JugaadGPT
+// Login modal — email OTP, styled to the JugaadGPT
 // paper/ink/yellow design language (same tokens as the chat UI).
 
 const LoginModal = () => {
-  const { loginOpen, closeLogin, signInWithGoogle, sendOtp, verifyOtp, authEnabled } = useAuth();
+  const { loginOpen, closeLogin, sendOtp, verifyOtp, authEnabled } = useAuth();
   const [step, setStep] = useState('start'); // start | code
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
@@ -70,18 +70,8 @@ const LoginModal = () => {
 
         {authEnabled && step === 'start' && (
           <>
-            <button
-              className="jg2-btn-navy"
-              style={{ width: '100%', justifyContent: 'center', marginBottom: 14 }}
-              onClick={signInWithGoogle}
-            >
-              <LogIn size={15} /> Continue with Google
-            </button>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '10px 0', color: 'var(--jg2-mute)', fontSize: 11, fontFamily: 'JetBrains Mono, monospace' }}>
-              <span style={{ flex: 1, borderTop: '1px dashed var(--jg2-kraft-deep)' }} />
-              OR
-              <span style={{ flex: 1, borderTop: '1px dashed var(--jg2-kraft-deep)' }} />
+            <div style={{ display: 'inline-flex', padding: '4px 8px', marginBottom: 12, border: '1px dashed var(--jg2-kraft-deep)', fontSize: 11, fontFamily: 'JetBrains Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--jg2-mute)' }}>
+              Email login only
             </div>
 
             <input

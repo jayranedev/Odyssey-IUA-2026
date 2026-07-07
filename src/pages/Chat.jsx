@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
-import { authHeaders, broadcastQuota } from '../services/api';
+import { API_BASE, authHeaders, broadcastQuota } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import QuotaPill from '../components/QuotaPill';
 import usePageTitle from '../hooks/usePageTitle';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const WORKSHOP_KEY = 'jg_workshop_draft';
 const BAZAARI_KEY = 'jg_bazaari';
 const BLUEPRINT_KEY = 'jg_blueprint';

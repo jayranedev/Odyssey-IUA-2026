@@ -1,11 +1,10 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { authHeaders } from '../services/api';
+import { API_BASE, authHeaders } from '../services/api';
 import usePageTitle from '../hooks/usePageTitle';
 
 const WORKSHOP_KEY = 'jg_workshop_draft';
 const SESSIONS_KEY = 'jg_sessions_v2';
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 // ── Conversations drawer ──────────────────────────────────────
 const ConversationsDrawer = ({ open, onClose, onResume }) => {
