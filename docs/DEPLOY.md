@@ -1,19 +1,19 @@
 # Deploying JugaadGPT — ₹0 stack
 
-**Primary path:** Vercel (web app + landing) + Koyeb (backend) + Supabase
+**Primary path:** Vercel (web app + landing) + Render (backend) + Supabase
 (Postgres + pgvector + Auth) + Upstash (Redis). All free tiers.
 The self-hosted Oracle/docker-compose path is kept as **Appendix A**.
 
 | Piece | Where | Cost |
 |---|---|---|
-| FastAPI backend (Docker) | Koyeb free instance (512MB) | ₹0 |
+| FastAPI backend (Docker) | Render web service | ₹0 |
 | Postgres + pgvector + Auth | Supabase free tier | ₹0 |
 | Redis (quotas, exhaustion flags) | Upstash free tier | ₹0 |
 | Root web app (Vite) | Vercel | ₹0 |
 | Landing page (`landing/`) | Vercel (second project) | ₹0 |
 | Keep-alive + backups + CI | GitHub Actions | ₹0 |
 
-Order matters: **Supabase → Upstash → Koyeb → migrations from your machine → Vercel → WhatsApp.**
+Order matters: **Supabase → Upstash → Render → migrations from your machine → Vercel.**
 
 ---
 
@@ -25,10 +25,8 @@ Order matters: **Supabase → Upstash → Koyeb → migrations from your machine
    create extension if not exists vector;
    ```
    Do this BEFORE running any migration.
-3. **Auth — Google provider**: Authentication → Providers → Google → enable.
-   - OAuth client at console.cloud.google.com (Web application).
-   - Authorized redirect URI: `https://<project-ref>.supabase.co/auth/v1/callback`.
-4. **Auth — Email** stays enabled (OTP works out of the box).
+3. **Auth — Email** stays enabled (OTP works out of the box).
+4. Skip Google auth for now. Enable it later in Supabase once your OAuth setup is ready.
 5. **Auth — URL Configuration**: Site URL = your web app URL (Vercel domain), add it to Redirect URLs.
 6. Collect the connection strings (Database → Connect):
    - **Transaction pooler (port 6543)** — for the running app:
@@ -45,20 +43,21 @@ Order matters: **Supabase → Upstash → Koyeb → migrations from your machine
 ## 2. Upstash (Redis)
 
 1. [console.upstash.com](https://console.upstash.com) → Create Database (free tier,
-   pick a region near your Koyeb region).
+   pick a region near your Render region).
 2. Copy the **`rediss://` URL** (TLS) → `REDIS_URL`. Nothing else needed —
    the client handles TLS automatically.
 
-## 3. Koyeb (backend)
+## 3. Render (backend)
 
-1. [app.koyeb.com](https://app.koyeb.com) → Create Service → **GitHub** → this repo.
+1. [render.com](https://render.com) → New → **Web Service** → connect this repo.
 2. Builder: **Dockerfile**, work directory `jugaadgpt-backend`
    (Dockerfile path `jugaadgpt-backend/Dockerfile`).
-3. Instance: **Free** (512MB). The default image build uses
+3. Instance: use the smallest available web service size. The default image build uses
    `EMBEDDING_PROVIDER=gemini` — slim, no torch, fits in RAM.
-4. **Health check**: HTTP path `/health` on port 8000 (Koyeb also injects `PORT`;
+4. Start Command: leave blank. The Dockerfile already starts the app with `gunicorn`.
+5. **Health check**: HTTP path `/health` on port 8000 (Render injects `PORT`;
    the container binds to it automatically).
-5. Environment variables (from `.env.example`):
+6. Environment variables (from `.env.example`):
    ```
    DATABASE_URL          = postgresql+asyncpg://postgres.<ref>:<pw>@aws-0-<region>.pooler.supabase.com:6543/postgres
    DATABASE_URL_SYNC     = postgresql://postgres.<ref>:<pw>@aws-0-<region>.pooler.supabase.com:5432/postgres?sslmode=require
@@ -70,20 +69,17 @@ Order matters: **Supabase → Upstash → Koyeb → migrations from your machine
    SUPABASE_URL          = https://<ref>.supabase.co
    SUPABASE_ANON_KEY     = ...
    SUPABASE_JWT_SECRET   = ...
-   WHATSAPP_VERIFY_TOKEN = jugaadgpt_verify
-   WHATSAPP_ACCESS_TOKEN = ...
-   WHATSAPP_PHONE_NUMBER_ID = ...
    ENVIRONMENT           = production
    CORS_ORIGINS          = https://<webapp>.vercel.app,https://<landing>.vercel.app
    SENTRY_DSN            = (optional)
    ```
-6. Deploy. Your API URL is `https://<app>-<org>.koyeb.app`.
-7. Smoke test: `curl https://<app>.koyeb.app/health` → `{"status":"ok"}` and
-   `curl https://<app>.koyeb.app/health/db` → `{"status":"ok","db":"ok"}`.
+7. Deploy. Your API URL is your Render service URL.
+8. Smoke test: `curl https://<app>.render.com/health` → `{"status":"ok"}` and
+   `curl https://<app>.render.com/health/db` → `{"status":"ok","db":"ok"}`.
 
 ## 4. Migrations + data — run FROM YOUR LOCAL MACHINE against Supabase
 
-The Koyeb free instance is best left serving traffic; run one-off jobs locally
+The Render service is best left serving traffic; run one-off jobs locally
 using the **session pooler** URL:
 
 ```bash
@@ -105,7 +101,7 @@ Optional full case library first:
 
 Retrieval smoke test (against the deployed API):
 ```bash
-curl -N -X POST https://<app>.koyeb.app/api/query \
+curl -N -X POST https://<app>.render.com/api/query \
   -H 'Content-Type: application/json' \
   -d '{"session_id":"smoke","message":"vegetables rotting no electricity Rajasthan, budget 500"}'
 ```
@@ -118,7 +114,7 @@ curl -N -X POST https://<app>.koyeb.app/api/query \
   (`/(.*) → /index.html`); `public/_redirects` stays for the Cloudflare Pages option.
 - Env vars:
   ```
-  VITE_API_URL           = https://<app>.koyeb.app
+   VITE_API_URL           = https://<app>.render.com
   VITE_SUPABASE_URL      = https://<ref>.supabase.co
   VITE_SUPABASE_ANON_KEY = <anon key>
   VITE_SENTRY_DSN        = (optional)
@@ -132,23 +128,17 @@ curl -N -X POST https://<app>.koyeb.app/api/query \
   `landing/sitemap.xml`, replace team photos + `landing/team.js`.
 
 Add your custom domains in each Vercel project if you have one, then add all
-final origins to the backend `CORS_ORIGINS` on Koyeb.
+final origins to the backend `CORS_ORIGINS` on Render.
 
-## 6. Meta WhatsApp webhook
-
-1. developers.facebook.com → your app → WhatsApp → Configuration.
-2. Webhook URL: `https://<app>.koyeb.app/api/whatsapp/webhook`
-3. Verify token = `WHATSAPP_VERIFY_TOKEN`; subscribe to the `messages` field.
-
-## 7. GitHub Actions (keep-alive, backups, CI)
+## 6. GitHub Actions (keep-alive, backups, CI)
 
 After pushing:
 1. Repo Settings → Actions → allow workflows.
 2. Secrets → Actions → add:
-   - `KEEPALIVE_API_URL` = `https://<app>.koyeb.app` (no trailing slash)
+   - `KEEPALIVE_API_URL` = `https://<app>.render.com` (no trailing slash)
    - `DATABASE_URL` = the **session pooler** URL with `?sslmode=require` (for backups)
 3. Workflows included:
-   - `keepalive.yml` — /health every 10 min (Koyeb never idles),
+    - `keepalive.yml` — /health every 10 min (Render never idles),
      /health/db daily (Supabase never pauses).
    - `backup.yml` — weekly `pg_dump` → gzipped artifact, 90-day retention,
      manual trigger available.
