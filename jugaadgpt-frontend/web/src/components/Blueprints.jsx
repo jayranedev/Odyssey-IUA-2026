@@ -1,5 +1,6 @@
 'use client';
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { AppShell } from './AppShell';
 import { IconSpeaker, IconTools } from './Icons2';
 
@@ -36,6 +37,17 @@ export const BlueprintsScreen = () => {
   return (
     <AppShell active="blueprints" bgClass="jg2-bg-paper">
       <div style={{ maxWidth: 1080, margin: '0 auto', position: 'relative' }}>
+
+        <div style={{ marginBottom: 12 }}>
+          <Link href="/" style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            fontSize: 12, fontFamily: 'JetBrains Mono, monospace', textTransform: 'uppercase',
+            color: 'var(--jg2-mute)', textDecoration: 'none',
+            letterSpacing: '0.05em', fontWeight: 600
+          }}>
+            ← Back to Chat
+          </Link>
+        </div>
 
         {/* Title row */}
         <div style={{ marginBottom: 20 }}>

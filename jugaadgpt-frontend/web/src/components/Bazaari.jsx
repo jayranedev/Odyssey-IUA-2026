@@ -1,5 +1,6 @@
 'use client';
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { AppShell } from './AppShell';
 import { IconStorefront, IconArrowSm } from './Icons2';
 
@@ -29,6 +30,17 @@ export const BazaariScreen = () => {
   return (
     <AppShell active="bazaari" bgClass="jg2-bg-paper">
       <div style={{ maxWidth: 880, margin: '0 auto', position: 'relative' }}>
+        
+        <div style={{ marginBottom: 12 }}>
+          <Link href="/" style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            fontSize: 12, fontFamily: 'JetBrains Mono, monospace', textTransform: 'uppercase',
+            color: 'var(--jg2-mute)', textDecoration: 'none',
+            letterSpacing: '0.05em', fontWeight: 600
+          }}>
+            ← Back to Chat
+          </Link>
+        </div>
 
         {/* Title */}
         <div style={{ marginBottom: 18 }}>

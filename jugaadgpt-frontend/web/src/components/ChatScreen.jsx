@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { AppShell } from './AppShell';
 import { authHeaders } from '../services/api';
 
@@ -132,7 +132,25 @@ const StreamingBubble = ({ text }) => (
   </div>
 );
 
-const SolutionBubble = ({ solution, warnings, onSave, saved }) => (
+const SolutionBubble = ({ solution, saved, warnings, onSave }) => {
+  const router = useRouter();
+
+  const handleLoadBlueprint = () => {
+    localStorage.setItem('jg_blueprint', JSON.stringify(solution));
+    router.push('/blueprints');
+  };
+
+  const handleFindBazaari = () => {
+    localStorage.setItem('jg_bazaari', JSON.stringify({
+      bazaari_context: {
+        total_cost_inr: solution.total_cost_inr,
+        materials: solution.materials
+      }
+    }));
+    router.push('/bazaari');
+  };
+
+  return (
   <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
     <div style={{
       background: 'var(--jg2-card)', border: '2px solid var(--jg2-ink)',
@@ -195,7 +213,7 @@ const SolutionBubble = ({ solution, warnings, onSave, saved }) => (
         )}
 
         {/* Save to Archive */}
-        <div style={{ borderTop: '1px dashed var(--jg2-kraft)', paddingTop: 12 }}>
+        <div style={{ borderTop: '1px dashed var(--jg2-kraft)', paddingTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button
             onClick={onSave}
             disabled={saved}
@@ -210,6 +228,34 @@ const SolutionBubble = ({ solution, warnings, onSave, saved }) => (
             }}
           >
             {saved ? '✓ Saved to Archive' : '⊞ Save to Archive'}
+          </button>
+          
+          <button
+            onClick={handleLoadBlueprint}
+            style={{
+              fontSize: 11, fontFamily: 'JetBrains Mono, monospace', fontWeight: 700,
+              textTransform: 'uppercase', letterSpacing: '0.05em',
+              padding: '6px 12px',
+              background: 'var(--jg2-paper)',
+              border: '1.5px solid var(--jg2-ink)',
+              cursor: 'pointer', color: 'var(--jg2-ink)',
+            }}
+          >
+            📐 Load Blueprint
+          </button>
+
+          <button
+            onClick={handleFindBazaari}
+            style={{
+              fontSize: 11, fontFamily: 'JetBrains Mono, monospace', fontWeight: 700,
+              textTransform: 'uppercase', letterSpacing: '0.05em',
+              padding: '6px 12px',
+              background: 'var(--jg2-paper)',
+              border: '1.5px solid var(--jg2-ink)',
+              cursor: 'pointer', color: 'var(--jg2-ink)',
+            }}
+          >
+            🛒 Find in Bazaari
           </button>
         </div>
       </div>
@@ -258,7 +304,24 @@ const ErrorBubble = ({ text }) => (
 // ── Sessions drawer ──────────────────────────────────────────────────────────
 
 const SessionsDrawer = ({ open, onClose, currentId, onSwitch }) => {
-  const sessions = loadSessions();
+  const [sessions, setSessions] = useState([]);
+  
+  useEffect(() => {
+    if (!open) return;
+    const fetchRemote = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/sessions`, { headers: authHeaders() });
+        if (res.ok) {
+          const data = await res.json();
+          setSessions(data.map(d => ({ id: d.id, title: d.title, updatedAt: d.updated_at })));
+          return;
+        }
+      } catch {}
+      setSessions(loadSessions());
+    };
+    fetchRemote();
+  }, [open]);
+
   return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 200,
@@ -344,10 +407,28 @@ export const ChatScreen = () => {
         localStorage.removeItem(WORKSHOP_KEY);
       }
     } else {
-      const stored = loadSessionMessages(sessionId);
-      if (stored.length) setMessages(stored);
+      const loadRemote = async () => {
+        try {
+          const res = await fetch(`${API_BASE}/api/sessions/${sessionId}`, { headers: authHeaders() });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.messages && data.messages.length > 0) {
+              const formatted = data.messages.map(m => ({
+                id: m.id, type: m.type, text: m.type === 'user' ? JSON.parse(m.content_json) : null,
+                solution: m.type === 'solution' ? JSON.parse(m.content_json) : null
+              }));
+              setMessages(formatted);
+              localStorage.setItem(`jg_msgs_${sessionId}`, JSON.stringify(formatted));
+              return;
+            }
+          }
+        } catch {}
+        const stored = loadSessionMessages(sessionId);
+        if (stored.length) setMessages(stored);
+      };
+      loadRemote();
     }
-  }, []);
+  }, [sessionId, searchParams]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
