@@ -45,7 +45,10 @@ const LoginModal = () => {
     >
       <div
         className="bg-white border-2 border-black shadow-jugaad-lg"
-        style={{ maxWidth: 380, width: '100%', padding: 24, position: 'relative' }}
+        style={{ 
+          maxWidth: 380, width: '100%', padding: 32, position: 'relative',
+          boxSizing: 'border-box', display: 'flex', flexDirection: 'column'
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         <button
