@@ -41,6 +41,15 @@ export function AuthProvider({ children }) {
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       setAccessToken(session?.access_token || null);
       setUser(session?.user || null);
+
+      // Broadcast token to the Chrome Extension
+      if (typeof window !== 'undefined') {
+        window.postMessage({
+          type: 'JUGAADGPT_AUTH_SYNC',
+          token: session?.access_token || null
+        }, '*');
+      }
+
       if (event === 'SIGNED_IN') {
         claimSessions();
         setLoginOpen(false);

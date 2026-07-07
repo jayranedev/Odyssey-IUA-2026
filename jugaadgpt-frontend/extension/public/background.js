@@ -1,5 +1,10 @@
 const DEFAULT_BACKEND_URL = 'https://odyssey-iua-2026-1.onrender.com';
 
+let authToken = null;
+chrome.storage.local.get(['authToken'], (result) => {
+  authToken = result.authToken || null;
+});
+
 function normalizeLang(lang) {
   if (lang === 'hindi') return 'hindi';
   if (lang === 'english') return 'english';
@@ -18,6 +23,8 @@ async function pingBackend(url) {
 async function queryBackend(backendUrl, message, sessionId, lang, deviceId) {
   const headers = { 'Content-Type': 'application/json' };
   if (deviceId) headers['X-Device-Id'] = deviceId;
+  if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+
   const response = await fetch(`${(backendUrl || DEFAULT_BACKEND_URL).replace(/\/$/, '')}/api/query`, {
     method: 'POST',
     headers,
@@ -140,6 +147,13 @@ async function queryBackend(backendUrl, message, sessionId, lang, deviceId) {
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type === 'JUGAADGPT_SET_TOKEN') {
+    authToken = message.token;
+    chrome.storage.local.set({ authToken: message.token });
+    sendResponse({ ok: true });
+    return false;
+  }
+
   if (message?.type === 'JUGAADGPT_QUERY_BACKEND') {
     queryBackend(message.backendUrl, message.payload, message.sessionId, message.lang, message.deviceId)
       .then((data) => sendResponse({ ok: true, ...data }))

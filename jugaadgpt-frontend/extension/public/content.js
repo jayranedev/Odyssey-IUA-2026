@@ -268,6 +268,18 @@ function updateOverlay(query, statusText, responseText) {
   overlay.response.textContent = responseText;
 }
 
+// Injected into all pages. Communicates with the extension's background script.
+
+// Listen for authentication sync from the web app
+window.addEventListener('message', (event) => {
+  if (event.data?.type === 'JUGAADGPT_AUTH_SYNC') {
+    chrome.runtime.sendMessage({
+      type: 'JUGAADGPT_SET_TOKEN',
+      token: event.data.token
+    });
+  }
+});
+
 async function runSearchAssist(force = false) {
   if (!isSearchPage()) return;
   const query = getSearchQuery();
