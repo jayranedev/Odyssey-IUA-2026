@@ -1,15 +1,45 @@
-import React from 'react';
+'use client';
+import React, { useEffect, useState } from 'react';
 import { AppShell } from './AppShell';
 import { IconSpeaker, IconTools } from './Icons2';
 
+const BLUEPRINT_KEY = 'jg_blueprint';
+
 export const BlueprintsScreen = () => {
+  const [bpData, setBpData] = useState(null);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(BLUEPRINT_KEY);
+      if (raw) setBpData(JSON.parse(raw));
+    } catch {}
+  }, []);
+
+  const title = bpData?.title || 'Pedal-Powered Irrigation Pump';
+  
+  // Parse solution string into steps
+  const steps = bpData?.solution 
+    ? bpData.solution.split('\n').filter(s => s.trim().length > 10)
+    : [
+        "Secure the bicycle frame to the heavy wooden base using iron clamps.",
+        "Connect the rear sprocket to the pump impeller using a standard cycle chain.",
+        "Attach the 2-inch PVC pipe to the suction end of the pump. Ensure no air leaks.",
+        "Pedal at 60 RPM to start water suction from the source."
+      ];
+
+  const materials = bpData?.bazaari_context?.materials || [
+    { item: 'Old Cycle Frame', quantity: '1 Unit' },
+    { item: 'Hand Pump Head', quantity: '1 Unit' },
+    { item: 'PVC Pipe (2")', quantity: '10 Feet' }
+  ];
+
   return (
     <AppShell active="blueprints" bgClass="jg2-bg-paper">
       <div style={{ maxWidth: 1080, margin: '0 auto', position: 'relative' }}>
 
         {/* Title row */}
         <div style={{ marginBottom: 20 }}>
-          <div className="jg2-eyebrow" style={{ marginBottom: 10 }}>Pedal-Powered Irrigation Pump</div>
+          <div className="jg2-eyebrow" style={{ marginBottom: 10 }}>{title}</div>
           <div style={{ display: 'flex', gap: 10 }}>
             <span className="jg2-chip">Schematic ID: BP-772-IND</span>
             <span className="jg2-chip jg2-chip-rust">Status: Verified Tool</span>
@@ -151,10 +181,19 @@ export const BlueprintsScreen = () => {
                 <IconTools size={18} stroke={1.7}/>
               </div>
 
-              <Step n="1" title="Base Frame" body="Secure the bicycle frame to the heavy wooden base using iron clamps."/>
-              <Step n="2" title="Drive Chain" body="Connect the rear sprocket to the pump impeller using a standard cycle chain."/>
-              <Step n="3" title="Inlet Valve" body="Attach the 2-inch PVC pipe to the suction end of the pump. Ensure no air leaks."/>
-              <Step n="4" title="Test Flow" body="Pedal at 60 RPM to start water suction from the source." muted/>
+              {steps.map((s, i) => {
+                // If the string starts with something like "1. **Title**:", try to parse it
+                let titleMatch = s.match(/^(?:\d+\.)?\s*(?:\*\*)?([^\*:]+)(?:\*\*)?[:\-]?\s*(.*)$/);
+                let stitle = `Step ${i + 1}`;
+                let sbody = s;
+                if (titleMatch && titleMatch[1].length < 40) {
+                  stitle = titleMatch[1].trim();
+                  sbody = titleMatch[2].trim() || sbody;
+                }
+                return (
+                  <Step key={i} n={i + 1} title={stitle} body={sbody.replace(/\*/g, '')}/>
+                );
+              })}
             </div>
 
             {/* Materials needed */}
@@ -171,9 +210,9 @@ export const BlueprintsScreen = () => {
               }}>
                 Materials Needed
               </div>
-              <MatRow label="Old Cycle Frame" qty="1 Unit"/>
-              <MatRow label="Hand Pump Head" qty="1 Unit"/>
-              <MatRow label="PVC Pipe (2&quot;)" qty="10 Feet"/>
+              {materials.map((m, i) => (
+                <MatRow key={i} label={m.item} qty={m.quantity}/>
+              ))}
             </div>
           </div>
         </div>

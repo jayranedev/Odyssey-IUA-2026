@@ -1,8 +1,31 @@
-import React from 'react';
+'use client';
+import React, { useEffect, useState } from 'react';
 import { AppShell } from './AppShell';
 import { IconStorefront, IconArrowSm } from './Icons2';
 
+const BAZAARI_KEY = 'jg_bazaari';
+
 export const BazaariScreen = () => {
+  const [bazaariData, setBazaariData] = useState(null);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(BAZAARI_KEY);
+      if (raw) setBazaariData(JSON.parse(raw));
+    } catch {}
+  }, []);
+
+  const title = bazaariData?.title || 'Solar-Cycle Frame';
+  const materials = bazaariData?.materials || [
+    { item: 'Mild Steel Square Pipe (1" x 1")', quantity: '12 Feet', cost_inr: 1440 },
+    { item: 'L-Angle Iron (25mm)', quantity: '6 Feet', cost_inr: 480 },
+    { item: 'Welding Rods (6013)', quantity: '1 Box', cost_inr: 350 },
+    { item: 'Cycle Hub & Spokes (Rear)', quantity: '2 Units', cost_inr: 800 },
+    { item: 'Threaded Bolts & Nuts (M12)', quantity: '12 Pcs', cost_inr: 120 },
+  ];
+  const totalCost = bazaariData?.total_cost_inr || 3190;
+  const dateStr = bazaariData?.savedAt ? new Date(bazaariData.savedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase() : '24 OCT 2023';
+
   return (
     <AppShell active="bazaari" bgClass="jg2-bg-paper">
       <div style={{ maxWidth: 880, margin: '0 auto', position: 'relative' }}>
@@ -20,7 +43,7 @@ export const BazaariScreen = () => {
             paddingTop: 4, marginTop: 4, marginLeft: 6,
             fontSize: 12, color: 'var(--jg2-graphite)',
           }}>
-            Bill of Materials for: <span style={{ fontWeight: 600 }}>Solar-Cycle Frame</span>
+            Bill of Materials for: <span style={{ fontWeight: 600 }}>{title}</span>
           </div>
         </div>
 
@@ -69,7 +92,7 @@ export const BazaariScreen = () => {
               fontWeight: 700, fontSize: 12, letterSpacing: '0.06em',
               color: 'var(--jg2-ink)',
             }}>
-              DATE: 24 OCT 2023
+              DATE: {dateStr}
             </div>
           </div>
 
@@ -92,22 +115,16 @@ export const BazaariScreen = () => {
               <span style={{ textAlign: 'right' }}>Est. Price (₹)</span>
             </div>
 
-            {[
-              ['Mild Steel Square Pipe (1" x 1")', '12 Feet', '1,440.00'],
-              ['L-Angle Iron (25mm)', '6 Feet', '480.00'],
-              ['Welding Rods (6013)', '1 Box', '350.00'],
-              ['Cycle Hub & Spokes (Rear)', '2 Units', '800.00'],
-              ['Threaded Bolts & Nuts (M12)', '12 Pcs', '120.00'],
-            ].map(([m, q, p], i) => (
+            {materials.map((m, i) => (
               <div key={i} style={{
                 display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr',
                 padding: '11px 16px', alignItems: 'center',
                 borderBottom: '0.5px dashed rgba(14,44,90,0.35)',
                 fontSize: 13.5, color: 'var(--jg2-ink)',
               }}>
-                <span>{m}</span>
-                <span className="jg2-mono">{q}</span>
-                <span className="jg2-mono" style={{ textAlign: 'right', fontWeight: 600 }}>{p}</span>
+                <span>{m.item}</span>
+                <span className="jg2-mono">{m.quantity}</span>
+                <span className="jg2-mono" style={{ textAlign: 'right', fontWeight: 600 }}>{m.cost_inr?.toFixed(2) || '0.00'}</span>
               </div>
             ))}
 
@@ -127,7 +144,7 @@ export const BazaariScreen = () => {
               <span className="jg2-mono" style={{
                 textAlign: 'right', fontWeight: 800, fontSize: 15,
                 color: 'var(--jg2-ink)',
-              }}>₹ 3,190.00</span>
+              }}>₹ {totalCost?.toFixed(2) || '0.00'}</span>
             </div>
           </div>
 
