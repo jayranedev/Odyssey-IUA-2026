@@ -104,7 +104,13 @@ const SolutionModal = ({ card, onClose }) => {
               )}
 
               {/* Action Buttons */}
-              <div style={{ display: 'flex', gap: 12, marginTop: 8, paddingTop: 16, borderTop: '1px dashed var(--jg2-kraft)' }}>
+              <div style={{ display: 'flex', gap: 12, marginTop: 8, paddingTop: 16, borderTop: '1px dashed var(--jg2-kraft)', flexWrap: 'wrap' }}>
+                <button
+                  onClick={() => { onClose(); router.push(`/chat?session_id=${card.session_id}`); }}
+                  style={{ flex: '1 1 100%', padding: '12px', background: 'var(--jg2-yellow)', color: 'var(--jg2-ink)', border: '1.5px solid var(--jg2-ink)', borderRadius: 6, fontWeight: 700, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', boxShadow: '3px 3px 0 var(--jg2-ink)' }}
+                >
+                  Resume Chat
+                </button>
                 <button
                   onClick={loadBlueprint}
                   style={{ flex: 1, padding: '12px', background: 'var(--jg2-ink)', color: 'var(--jg2-paper)', border: 'none', borderRadius: 6, fontWeight: 700, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer' }}

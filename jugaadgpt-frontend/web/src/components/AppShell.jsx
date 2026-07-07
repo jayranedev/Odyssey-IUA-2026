@@ -38,8 +38,9 @@ export const AppShell = ({ active = 'workshop', children, bgClass = 'jg2-bg-pape
       </main>
 
       {/* Bottom nav */}
-      <nav className="jg2-bottomnav">
+      <nav className="jg2-bottomnav" style={{ flexWrap: 'wrap' }}>
         <NavItem id="workshop" active={active === 'workshop'} label="Workshop" icon={<IconTools size={26} stroke={1.7}/>} />
+        <NavItem id="chat" active={active === 'chat'} label="Chat" icon={<IconListCheck size={26} stroke={1.7}/>} />
         <NavItem id="blueprints" active={active === 'blueprints'} label="Blueprints" icon={<IconCompass size={26} stroke={1.7}/>} />
         <NavItem id="bazaari" active={active === 'bazaari'} label="Bazaari" icon={<IconStorefront size={24} stroke={1.7}/>} />
         <NavItem id="archive" active={active === 'archive'} label="Archive" icon={<IconArchive size={24} stroke={1.7}/>} />

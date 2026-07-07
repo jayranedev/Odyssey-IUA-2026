@@ -87,64 +87,56 @@ export const BlueprintsScreen = () => {
                 backgroundSize: '40px 40px, 40px 40px, 8px 8px, 8px 8px',
               }}/>
 
-              {/* schematic SVG (placeholder pump diagram) */}
-              <svg viewBox="0 0 400 400" width="100%" height="100%"
-                style={{ position: 'absolute', inset: 0, color: '#A9C4E5' }}>
-                <g stroke="currentColor" strokeWidth="0.8" fill="none" opacity="0.85">
-                  {/* frame outline */}
-                  <rect x="40" y="80" width="320" height="240"/>
-                  <rect x="56" y="96" width="288" height="208" strokeDasharray="2 3" opacity="0.4"/>
-                  {/* cycle frame triangle */}
-                  <path d="M90 280 L160 140 L240 280 Z"/>
-                  <path d="M160 140 L260 200 L240 280" />
-                  {/* wheel */}
-                  <circle cx="90" cy="280" r="38"/>
-                  <circle cx="90" cy="280" r="8"/>
-                  <circle cx="240" cy="280" r="22"/>
-                  <circle cx="240" cy="280" r="6"/>
-                  {/* spokes */}
-                  {Array.from({length:8}).map((_,i)=>(
-                    <line key={i} x1="90" y1="280"
-                      x2={90+38*Math.cos(i*Math.PI/4)} y2={280+38*Math.sin(i*Math.PI/4)}/>
-                  ))}
-                  {/* pump body */}
-                  <rect x="280" y="180" width="60" height="100"/>
-                  <rect x="290" y="160" width="40" height="20"/>
-                  <line x1="310" y1="160" x2="310" y2="100"/>
-                  <circle cx="310" cy="100" r="14"/>
-                  {/* pipe */}
-                  <path d="M280 240 L200 240 L200 340"/>
-                  <path d="M340 240 L370 240 L370 320"/>
-                  {/* dimension lines */}
-                  <line x1="40" y1="60" x2="360" y2="60" strokeDasharray="3 3"/>
-                  <line x1="40" y1="55" x2="40" y2="65"/>
-                  <line x1="360" y1="55" x2="360" y2="65"/>
-                  <text x="190" y="55" fill="currentColor" fontSize="9" fontFamily="JetBrains Mono">320 mm</text>
-                  {/* labels */}
-                  <text x="60" y="350" fill="currentColor" fontSize="8" fontFamily="JetBrains Mono" opacity="0.7">FIG.1 — DRIVE ASSEMBLY</text>
-                  <text x="280" y="350" fill="currentColor" fontSize="8" fontFamily="JetBrains Mono" opacity="0.7">FIG.2 — PUMP</text>
-                </g>
-                {/* callout line to bolt */}
-                <g stroke="#F4C61E" strokeWidth="1" opacity="0.9">
-                  <path d="M180 200 L220 220" />
-                  <circle cx="220" cy="220" r="3" fill="#F4C61E"/>
-                </g>
-              </svg>
+              {/* Dynamic Schematic Graphic */}
+              <div style={{ position: 'absolute', inset: 0, padding: 30, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 20 }}>
+                {steps.slice(0, 4).map((step, idx) => (
+                  <div key={idx} style={{
+                    display: 'flex', alignItems: 'center', gap: 16,
+                    transform: `translateX(${idx % 2 === 0 ? 0 : 30}px)`,
+                    opacity: 0.9
+                  }}>
+                    <div style={{
+                      width: 44, height: 44, borderRadius: '50%',
+                      background: 'transparent', border: '2px solid #A9C4E5',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontFamily: 'JetBrains Mono, monospace', fontSize: 18, color: '#A9C4E5',
+                      flexShrink: 0
+                    }}>
+                      0{idx + 1}
+                    </div>
+                    <div style={{
+                      flex: 1, height: '1px',
+                      background: 'repeating-linear-gradient(90deg, #A9C4E5 0, #A9C4E5 4px, transparent 4px, transparent 8px)'
+                    }} />
+                    <div style={{
+                      background: 'rgba(169, 196, 229, 0.1)', border: '1px solid rgba(169, 196, 229, 0.4)',
+                      padding: '8px 12px', borderRadius: 6,
+                      fontSize: 11, fontFamily: 'JetBrains Mono, monospace', color: '#A9C4E5',
+                      textTransform: 'uppercase', letterSpacing: '0.05em',
+                      maxWidth: '60%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                    }}>
+                      {materials[idx % materials.length]?.item || 'ASSEMBLY PART'}
+                    </div>
+                  </div>
+                ))}
 
-              {/* Yellow callout */}
-              <div style={{
-                position: 'absolute',
-                left: '38%', top: '36%',
-                background: 'var(--jg2-yellow)',
-                border: '1.5px solid var(--jg2-ink)',
-                padding: '5px 10px',
-                fontSize: 11, fontWeight: 800,
-                letterSpacing: '0.08em',
-                color: 'var(--jg2-ink)',
-                textTransform: 'uppercase',
-                boxShadow: '2px 2px 0 var(--jg2-ink)',
-              }}>
-                Use 12mm Bolts
+                {materials.length > 0 && (
+                  <div style={{
+                    position: 'absolute',
+                    left: '50%', top: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    background: 'var(--jg2-yellow)',
+                    border: '2px solid var(--jg2-ink)',
+                    padding: '8px 16px',
+                    fontSize: 12, fontWeight: 800,
+                    letterSpacing: '0.08em',
+                    color: 'var(--jg2-ink)',
+                    textTransform: 'uppercase',
+                    boxShadow: '4px 4px 0 rgba(0,0,0,0.5)',
+                  }}>
+                    CORE: {materials[0].item}
+                  </div>
+                )}
               </div>
             </div>
 

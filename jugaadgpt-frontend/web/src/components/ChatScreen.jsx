@@ -373,7 +373,14 @@ function mirrorToBackend(sessionId, title, lang, role, type, content) {
 
 export const ChatScreen = () => {
   const searchParams = useSearchParams();
-  const [sessionId, setSessionId] = useState(() => getSessionId());
+  const [sessionId, setSessionId] = useState(() => {
+    const queryId = searchParams?.get('session_id');
+    if (queryId) {
+      if (typeof window !== 'undefined') localStorage.setItem('jg_session_id', queryId);
+      return queryId;
+    }
+    return getSessionId();
+  });
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
