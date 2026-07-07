@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="jugaadgpt-extension-latest">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/releases/jugaadgpt-extension-latest.zip!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
