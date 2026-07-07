@@ -64,8 +64,8 @@ jobs:
         run: npm run build
 
       - name: Zip Extension
-        working-directory: ./jugaadgpt-frontend/extension
-        run: zip -r ../../jugaadgpt-extension-latest.zip dist
+        working-directory: ./jugaadgpt-frontend/extension/dist
+        run: zip -r ../../../jugaadgpt-extension-latest.zip .
 
       - name: Upload Extension Artifact
         uses: actions/upload-artifact@v4
