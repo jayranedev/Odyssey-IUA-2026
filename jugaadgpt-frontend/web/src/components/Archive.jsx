@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { AppShell } from './AppShell';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE = 'https://odyssey-iua-2026-1.onrender.com';
 
 export const ArchiveScreen = () => {
   const [cards, setCards] = useState([]);

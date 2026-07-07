@@ -7,8 +7,8 @@ const env = import.meta.env;
 // localhost fallbacks for dev. No LLM keys live in the extension —
 // every query goes through the FastAPI backend.
 const DEFAULT_CONFIG = {
-  backendUrl: env.VITE_API_URL || 'http://localhost:8000',
-  webAppUrl: env.VITE_WEB_APP_URL || 'http://localhost:5173',
+  backendUrl: 'https://odyssey-iua-2026-1.onrender.com',
+  webAppUrl: env.VITE_WEB_APP_URL || 'https://jugaadgpt-web.vercel.app',
 };
 
 const storage = {

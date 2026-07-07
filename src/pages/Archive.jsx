@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import usePageTitle from '../hooks/usePageTitle';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE = 'https://odyssey-iua-2026-1.onrender.com';
 const BAZAARI_KEY = 'jg_bazaari';
 const BLUEPRINT_KEY = 'jg_blueprint';
 

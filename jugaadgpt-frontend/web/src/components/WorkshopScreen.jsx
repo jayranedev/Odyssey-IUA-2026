@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { AppShell } from './AppShell';
 import { IconPencil, IconListCheck, IconCamera, IconWallet, IconSparkle, IconTools, IconPlus, IconX } from './Icons2';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE = 'https://odyssey-iua-2026-1.onrender.com';
 const WORKSHOP_KEY = 'jg_workshop_draft';
 
 export const WorkshopScreen = () => {

@@ -6,7 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const extra = Constants.expoConfig?.extra || {};
 
-export const API_BASE = extra.apiBaseUrl || 'http://localhost:8000';
+export const API_BASE = 'https://odyssey-iua-2026-1.onrender.com';
 
 const DEVICE_KEY = 'jg_device_id';
 let _deviceId = null;

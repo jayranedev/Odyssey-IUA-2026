@@ -4,7 +4,7 @@ import usePageTitle from '../hooks/usePageTitle';
 
 const BLUEPRINT_KEY = 'jg_blueprint';
 const BP_IMG_PREFIX = 'jg_bp_img_';
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE = 'https://odyssey-iua-2026-1.onrender.com';
 
 const Blueprints = () => {
   usePageTitle('Blueprints');

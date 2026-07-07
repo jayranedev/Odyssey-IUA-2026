@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AppShell } from './AppShell';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE = 'https://odyssey-iua-2026-1.onrender.com';
 const WORKSHOP_KEY = 'jg_workshop_draft';
 const SESSIONS_KEY = 'jg_sessions_v2';
 const ROTATIONS = ['rotate-1', '-rotate-2', 'rotate-2', '-rotate-1'];
