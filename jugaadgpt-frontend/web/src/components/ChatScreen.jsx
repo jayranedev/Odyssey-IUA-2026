@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AppShell } from './AppShell';
+import { authHeaders } from '../services/api';
 
 const API_BASE = 'https://odyssey-iua-2026-1.onrender.com';
 const WORKSHOP_KEY = 'jg_workshop_draft';
@@ -292,6 +293,18 @@ const SessionsDrawer = ({ open, onClose, currentId, onSwitch }) => {
   );
 };
 
+// Fire-and-forget mirror of session + message to the backend
+function mirrorToBackend(sessionId, title, lang, role, type, content) {
+  const headers = authHeaders({ 'Content-Type': 'application/json' });
+  fetch(`${API_BASE}/api/sessions`, {
+    method: 'POST', headers,
+    body: JSON.stringify({ id: sessionId, title: (title || 'New Chat').slice(0, 60), lang }),
+  }).then(() => fetch(`${API_BASE}/api/sessions/${sessionId}/messages`, {
+    method: 'POST', headers,
+    body: JSON.stringify({ role, type, content_json: JSON.stringify(content) }),
+  })).catch(() => {});
+}
+
 // ── Main chat screen ─────────────────────────────────────────────────────────
 
 export const ChatScreen = () => {
@@ -374,7 +387,7 @@ export const ChatScreen = () => {
     };
     try {
       const res = await fetch(`${API_BASE}/api/archive`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(card),
       });
       if (res.ok) { setSavedIdx(prev => new Set([...prev, msgIdx])); showToast('Saved to archive ✓'); }
@@ -388,7 +401,7 @@ export const ChatScreen = () => {
     try {
       const res = await fetch(`${API_BASE}/api/query`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ session_id: sessionId, message: fullMessage, channel: 'web' }),
       });
       if (!res.ok) throw new Error(`Server error ${res.status}`);
@@ -398,6 +411,7 @@ export const ChatScreen = () => {
       let buffer = '';
       streamingIdxRef.current = null;
       let streamText = '';
+      let finalSolution = null;
 
       const flush = (raw) => {
         const blocks = raw.split('\n\n');
@@ -423,8 +437,10 @@ export const ChatScreen = () => {
           } else if (eventType === 'clarification') {
             const parsed = JSON.parse(dataLine);
             pushMsg({ type: 'clarification', question: parsed.question });
+            mirrorToBackend(sessionId, null, voiceLang, 'assistant', 'clarification', parsed.question);
           } else if (eventType === 'solution') {
             const parsed = JSON.parse(dataLine);
+            finalSolution = parsed.solution;
             const idx = streamingIdxRef.current;
             if (idx !== null) {
               setMessages(prev => { const c = [...prev]; c[idx] = { type: 'solution', solution: parsed.solution, warnings: parsed.warnings }; return c; });
@@ -432,6 +448,7 @@ export const ChatScreen = () => {
               pushMsg({ type: 'solution', solution: parsed.solution, warnings: parsed.warnings });
             }
             pendingContext.current = [];
+            mirrorToBackend(sessionId, null, voiceLang, 'assistant', 'solution', parsed.solution);
           } else if (eventType === 'error') {
             pushMsg({ type: 'error', text: dataLine });
             pendingContext.current = [];
@@ -454,7 +471,7 @@ export const ChatScreen = () => {
       setLoading(false);
       setTimeout(() => inputRef.current?.focus(), 50);
     }
-  }, [sessionId]);
+  }, [sessionId, voiceLang]);
 
   const handleSend = useCallback(() => {
     const text = input.trim();
@@ -463,14 +480,21 @@ export const ChatScreen = () => {
     setInterimText('');
     pendingContext.current = [text];
     pushMsg({ type: 'user', text });
+    
+    // Attempt to extract a title if this is the first message
+    const stored = loadSessionMessages(sessionId);
+    const title = stored.length === 0 ? text : null;
+    mirrorToBackend(sessionId, title, voiceLang, 'user', 'text', text);
+    
     callAPI(text);
-  }, [input, loading, callAPI]);
+  }, [input, loading, callAPI, sessionId, voiceLang]);
 
   const handleClarificationReply = useCallback((answer) => {
     pendingContext.current = [...pendingContext.current, answer];
     pushMsg({ type: 'user', text: answer });
+    mirrorToBackend(sessionId, null, voiceLang, 'user', 'text', answer);
     callAPI(pendingContext.current.join('\n'));
-  }, [callAPI]);
+  }, [callAPI, sessionId, voiceLang]);
 
   const startNewChat = () => {
     const id = newSessionId();

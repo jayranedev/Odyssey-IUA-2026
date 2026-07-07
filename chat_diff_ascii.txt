@@ -1,0 +1,183 @@
+diff --git a/final repo of hackathon/Its_Us_Anonymous/src/pages/Chat.jsx b/src/pages/Chat.jsx
+index bb74eb0..b8c9c40 100644
+--- a/final repo of hackathon/Its_Us_Anonymous/src/pages/Chat.jsx	
++++ b/src/pages/Chat.jsx
+@@ -1,7 +1,10 @@
+ import React, { useState, useEffect, useRef, useCallback } from 'react';
+ import { useSearchParams, Link, useNavigate } from 'react-router-dom';
++import { API_BASE, authHeaders, broadcastQuota } from '../services/api';
++import { useAuth } from '../context/AuthContext';
++import QuotaPill from '../components/QuotaPill';
++import usePageTitle from '../hooks/usePageTitle';
+ 
+-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+ const WORKSHOP_KEY = 'jg_workshop_draft';
+ const BAZAARI_KEY = 'jg_bazaari';
+ const BLUEPRINT_KEY = 'jg_blueprint';
+@@ -40,6 +43,20 @@ function loadSessionMessages(id) {
+   try { return JSON.parse(localStorage.getItem(`jg_msgs_${id}`) || '[]'); } catch { return []; }
+ }
+ 
++// Fire-and-forget mirror of session + message to the backend so logged-in
++// users keep their chats across devices (and anonymous chats can be claimed
++// on login via /api/sessions/claim).
++function mirrorToBackend(sessionId, title, lang, role, type, content) {
++  const headers = authHeaders({ 'Content-Type': 'application/json' });
++  fetch(`${API_BASE}/api/sessions`, {
++    method: 'POST', headers,
++    body: JSON.stringify({ id: sessionId, title: (title || 'New Chat').slice(0, 60), lang }),
++  }).then(() => fetch(`${API_BASE}/api/sessions/${sessionId}/messages`, {
++    method: 'POST', headers,
++    body: JSON.stringify({ role, type, content_json: JSON.stringify(content) }),
++  })).catch(() => {});
++}
++
+ async function fileToBase64(file) {
+   return new Promise((resolve, reject) => {
+     const reader = new FileReader();
+@@ -49,7 +66,7 @@ async function fileToBase64(file) {
+   });
+ }
+ 
+-// ?????? Text-to-speech (Sarvam AI Bulbul ??? Indian voices) ????????????????????????
++// ?????? Text-to-speech (edge-tts via backend ??? Indian voices) ????????????
+ 
+ function cleanForSpeech(raw) {
+   return raw
+@@ -539,6 +556,7 @@ const ImagePreview = ({ file, onRemove }) => (
+ // ?????? Main chat page ????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
+ 
+ const Chat = () => {
++  usePageTitle('Chat');
+   const [searchParams] = useSearchParams();
+   const navigate = useNavigate();
+   const [sessionId, setSessionId] = useState(() => getSessionId());
+@@ -553,6 +571,11 @@ const Chat = () => {
+   const [toast, setToast] = useState('');
+   const [workshopCtx, setWorkshopCtx] = useState(null);
+   const [imageFile, setImageFile] = useState(null);
++  const [overQuota, setOverQuota] = useState(false); // anon hit daily limit ??? login required
++  const { user, openLogin } = useAuth();
++
++  // Logging in lifts the anonymous limit (25/day account quota kicks in)
++  useEffect(() => { if (user) setOverQuota(false); }, [user]);
+ 
+   const pendingContext = useRef([]);
+   const bottomRef = useRef(null);
+@@ -670,7 +693,7 @@ const Chat = () => {
+ 
+       const res = await fetch(`${API_BASE}/api/query`, {
+         method: 'POST',
+-        headers: { 'Content-Type': 'application/json' },
++        headers: authHeaders({ 'Content-Type': 'application/json' }),
+         body: JSON.stringify(body),
+       });
+       if (!res.ok) throw new Error(`Server error ${res.status}`);
+@@ -695,6 +718,24 @@ const Chat = () => {
+ 
+           if (eventType === 'status') {
+             pushMsg({ type: 'status', text: data });
++          } else if (eventType === 'quota') {
++            try { broadcastQuota(JSON.parse(data)); } catch { /* ignore */ }
++          } else if (eventType === 'login_required') {
++            setOverQuota(true);
++            let msg = "You've used your free jugaads today ??? log in to continue and save your chats.";
++            try { msg = JSON.parse(data).message || msg; } catch { /* keep default */ }
++            pushMsg({ type: 'login_required', text: msg });
++            pendingContext.current = [];
++          } else if (eventType === 'quota_exhausted') {
++            let msg = "You've used all your jugaads for today. Resets at midnight UTC.";
++            try { msg = JSON.parse(data).message || msg; } catch { /* keep default */ }
++            pushMsg({ type: 'capacity', text: msg });
++            pendingContext.current = [];
++          } else if (eventType === 'capacity') {
++            let msg = 'Daily free capacity reached. Try again after midnight UTC.';
++            try { msg = JSON.parse(data).message || msg; } catch { /* keep default */ }
++            pushMsg({ type: 'capacity', text: msg });
++            pendingContext.current = [];
+           } else if (eventType === 'token') {
+             streamText += data;
+             if (streamingIdxRef.current === null) {
+@@ -728,6 +769,8 @@ const Chat = () => {
+               } else {
+                 pushMsg({ type: 'solution', solution: parsed.solution, warnings: parsed.warnings });
+               }
++              // Mirror the solution to the backend (saved chats)
++              mirrorToBackend(sessionId, fullMessage, respLang, 'assistant', 'solution', parsed.solution);
+               // Save materials to localStorage so Bazaari page can read them
+               if (parsed.solution?.materials?.length) {
+                 localStorage.setItem(BAZAARI_KEY, JSON.stringify({
+@@ -765,7 +808,7 @@ const Chat = () => {
+ 
+   const handleSend = useCallback(async () => {
+     const text = input.trim();
+-    if (!text || loading) return;
++    if (!text || loading || overQuota) return;
+ 
+     let imgBase64 = null;
+     if (imageFile) {
+@@ -784,8 +827,9 @@ const Chat = () => {
+ 
+     const userMsg = { type: 'user', text, hasImage: !!imgBase64 };
+     pushMsg(userMsg);
++    mirrorToBackend(sessionId, text, respLang, 'user', 'user', { text });
+     callAPI(text, imgBase64);
+-  }, [input, loading, imageFile, callAPI]);
++  }, [input, loading, overQuota, imageFile, callAPI, sessionId, respLang]);
+ 
+   const handleClarificationReply = useCallback((answer) => {
+     pendingContext.current = [...pendingContext.current, answer];
+@@ -853,6 +897,7 @@ const Chat = () => {
+           </button>
+         </div>
+         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
++          <QuotaPill />
+           <select
+             value={`${voiceLang}:${respLang}`}
+             onChange={handleLangChange}
+@@ -978,6 +1023,29 @@ const Chat = () => {
+             <ClarificationBubble key={i} question={msg.question} onReply={handleClarificationReply} voiceLang={voiceLang} />
+           );
+           if (msg.type === 'error') return <ErrorBubble key={i} text={msg.text} />;
++          if (msg.type === 'capacity') return (
++            <div key={i} style={{
++              background: 'var(--jg2-yellow)', border: '2px solid var(--jg2-ink)',
++              padding: '12px 16px', fontSize: 13, fontWeight: 600,
++              boxShadow: '3px 3px 0 var(--jg2-ink)', maxWidth: 560,
++            }}>
++              ??? {msg.text}
++            </div>
++          );
++          if (msg.type === 'login_required') return (
++            <div key={i} style={{
++              background: 'white', border: '2px solid var(--jg2-ink)',
++              padding: '14px 18px', boxShadow: '3px 3px 0 var(--jg2-ink)', maxWidth: 560,
++            }}>
++              <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--jg2-brick)', marginBottom: 6 }}>
++                Daily free limit reached
++              </div>
++              <div style={{ fontSize: 14, marginBottom: 12 }}>{msg.text}</div>
++              <button className="jg2-btn-yellow" onClick={openLogin}>
++                Log in ??? it's free
++              </button>
++            </div>
++          );
+           return null;
+         })}
+ 
+@@ -1035,9 +1103,13 @@ const Chat = () => {
+               value={interimText && !input ? interimText : input}
+               onChange={e => setInput(e.target.value)}
+               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+-              placeholder={listening ? '???? Listening??? click mic again to stop' : 'Describe your problem, budget, location??? (Enter to send)'}
++              placeholder={
++                overQuota
++                  ? 'Daily free limit reached ??? log in to continue'
++                  : listening ? '???? Listening??? click mic again to stop' : 'Describe your problem, budget, location??? (Enter to send)'
++              }
+               rows={1}
+-              disabled={loading}
++              disabled={loading || overQuota}
+               style={{
+                 flex: 1, resize: 'none', border: 'none', outline: 'none',
+                 fontFamily: 'inherit', fontSize: 14, lineHeight: 1.6,

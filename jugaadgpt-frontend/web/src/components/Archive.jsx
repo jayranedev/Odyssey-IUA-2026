@@ -1,13 +1,138 @@
 'use client';
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { AppShell } from './AppShell';
+import { authHeaders } from '../services/api';
 
 const API_BASE = 'https://odyssey-iua-2026-1.onrender.com';
+const BLUEPRINT_KEY = 'jg_blueprint';
+const BAZAARI_KEY = 'jg_bazaari';
+
+const SolutionModal = ({ card, onClose }) => {
+  const router = useRouter();
+  let solution = null;
+  if (card.solution_json) {
+    try {
+      const parsed = JSON.parse(card.solution_json);
+      solution = parsed.solution || parsed;
+    } catch { /* ignore */ }
+  }
+
+  const loadBlueprint = () => {
+    localStorage.setItem(BLUEPRINT_KEY, JSON.stringify(solution));
+    onClose();
+    router.push('/blueprints');
+  };
+
+  const loadBazaari = () => {
+    localStorage.setItem(BAZAARI_KEY, JSON.stringify({
+      title: solution.title,
+      materials: solution.materials,
+      total_cost_inr: solution.total_cost_inr,
+      savedAt: Date.now(),
+    }));
+    onClose();
+    router.push('/bazaari');
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)' }} onClick={onClose} />
+      <div style={{
+        position: 'relative', background: 'var(--jg2-paper)', border: '2px solid var(--jg2-ink)',
+        borderRadius: 4, boxShadow: '6px 6px 0 var(--jg2-ink)',
+        maxWidth: 640, width: '100%', maxHeight: '85vh', overflowY: 'auto',
+      }}>
+        {/* Header */}
+        <div style={{
+          background: 'var(--jg2-yellow)', padding: '12px 20px',
+          borderBottom: '2px solid var(--jg2-ink)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <div>
+            <div style={{ fontSize: 10, fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.6 }}>
+              Archive — {card.status}
+            </div>
+            <div style={{ fontWeight: 700, fontSize: 17, marginTop: 2, color: 'var(--jg2-ink)' }}>{card.title}</div>
+          </div>
+          <button
+            onClick={onClose}
+            style={{ background: 'var(--jg2-ink)', color: 'var(--jg2-paper)', border: 'none', borderRadius: 4, padding: '4px 10px', cursor: 'pointer', fontSize: 14, fontWeight: 700 }}
+          >
+            ✕
+          </button>
+        </div>
+
+        <div style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Annotation */}
+          {card.annotation && (
+            <p style={{ fontFamily: "'Caveat', cursive", fontSize: 18, color: 'var(--jg2-graphite)', margin: 0 }}>{card.annotation}</p>
+          )}
+
+          {solution ? (
+            <>
+              {solution.summary && (
+                <p style={{ fontSize: 14, lineHeight: 1.65, color: 'var(--jg2-graphite)', margin: 0 }}>{solution.summary}</p>
+              )}
+
+              {solution.materials?.length > 0 && (
+                <div style={{ background: 'var(--jg2-kraft-light)', padding: '12px 14px', borderRadius: 6 }}>
+                  <div style={{ fontSize: 11, fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, textTransform: 'uppercase', marginBottom: 10, letterSpacing: '0.05em', color: 'var(--jg2-ink)' }}>Materials Required</div>
+                  {solution.materials.map((m, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, padding: '4px 0', borderBottom: i < solution.materials.length - 1 ? '1px solid var(--jg2-kraft)' : 'none', color: 'var(--jg2-graphite)' }}>
+                      <span>{m.item} <span style={{ color: 'var(--jg2-mute)', fontSize: 12 }}>({m.quantity})</span></span>
+                      <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 600, color: 'var(--jg2-ink)' }}>₹{m.cost_inr?.toFixed(0)}</span>
+                    </div>
+                  ))}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, paddingTop: 10, borderTop: '2px solid var(--jg2-kraft)', fontWeight: 700, fontSize: 15, color: 'var(--jg2-ink)' }}>
+                    <span>Estimated Total</span>
+                    <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>₹{solution.total_cost_inr?.toFixed(0)}</span>
+                  </div>
+                </div>
+              )}
+
+              {solution.build_steps?.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 11, fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, textTransform: 'uppercase', marginBottom: 10, letterSpacing: '0.05em', color: 'var(--jg2-ink)' }}>How to Build</div>
+                  {solution.build_steps.map((step, i) => (
+                    <div key={i} style={{ display: 'flex', gap: 12, marginBottom: 10, fontSize: 14, lineHeight: 1.6, color: 'var(--jg2-graphite)' }}>
+                      <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, color: 'var(--jg2-brick)', flexShrink: 0, minWidth: 24, paddingTop: 2 }}>{i + 1}.</span>
+                      <span>{step}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', gap: 12, marginTop: 8, paddingTop: 16, borderTop: '1px dashed var(--jg2-kraft)' }}>
+                <button
+                  onClick={loadBlueprint}
+                  style={{ flex: 1, padding: '12px', background: 'var(--jg2-ink)', color: 'var(--jg2-paper)', border: 'none', borderRadius: 6, fontWeight: 700, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer' }}
+                >
+                  Load in Blueprints
+                </button>
+                <button
+                  onClick={loadBazaari}
+                  style={{ flex: 1, padding: '12px', background: 'var(--jg2-brick)', color: '#fff', border: 'none', borderRadius: 6, fontWeight: 700, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer' }}
+                >
+                  Find in Bazaari
+                </button>
+              </div>
+            </>
+          ) : (
+            <p style={{ color: 'var(--jg2-mute)', fontStyle: 'italic', fontSize: 14 }}>No detailed solution data found.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export const ArchiveScreen = () => {
   const [cards, setCards] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [activeCard, setActiveCard] = useState(null);
 
   const sessionId = typeof window !== 'undefined' ? localStorage.getItem('jg_session_id') : null;
 
@@ -17,7 +142,7 @@ export const ArchiveScreen = () => {
       const url = sessionId
         ? `${API_BASE}/api/archive?session_id=${sessionId}`
         : `${API_BASE}/api/archive`;
-      const res = await fetch(url);
+      const res = await fetch(url, { headers: authHeaders() });
       if (!res.ok) throw new Error(`Server ${res.status}`);
       setCards(await res.json());
     } catch (e) {
@@ -29,20 +154,23 @@ export const ArchiveScreen = () => {
 
   useEffect(() => { fetchCards(); }, []);
 
-  const toggleStar = async (id, currentStarred) => {
+  const toggleStar = async (e, id, currentStarred) => {
+    e.stopPropagation();
     try {
       const res = await fetch(`${API_BASE}/api/archive/${id}`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        method: 'PATCH', headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ starred: !currentStarred }),
       });
       if (res.ok) setCards(prev => prev.map(c => c.id === id ? { ...c, starred: !currentStarred } : c));
     } catch { /* best-effort */ }
   };
 
-  const deleteCard = async (id) => {
+  const deleteCard = async (e, id) => {
+    e.stopPropagation();
     try {
-      await fetch(`${API_BASE}/api/archive/${id}`, { method: 'DELETE' });
+      await fetch(`${API_BASE}/api/archive/${id}`, { method: 'DELETE', headers: authHeaders() });
       setCards(prev => prev.filter(c => c.id !== id));
+      if (activeCard?.id === id) setActiveCard(null);
     } catch { /* best-effort */ }
   };
 
@@ -91,24 +219,33 @@ export const ArchiveScreen = () => {
             <PolaroidCard
               key={card.id}
               card={card}
-              onStar={() => toggleStar(card.id, card.starred)}
-              onDelete={() => deleteCard(card.id)}
+              onClick={() => setActiveCard(card)}
+              onStar={(e) => toggleStar(e, card.id, card.starred)}
+              onDelete={(e) => deleteCard(e, card.id)}
             />
           ))}
         </div>
+
+        {activeCard && <SolutionModal card={activeCard} onClose={() => setActiveCard(null)} />}
 
       </div>
     </AppShell>
   );
 };
 
-const PolaroidCard = ({ card, onStar, onDelete }) => {
+const PolaroidCard = ({ card, onClick, onStar, onDelete }) => {
   const rotation = card.rotation || 'rotate-1';
   const bg = card.bg_color || 'bg-white';
+  
+  // Try to use image_id or fallback to image
+  const imageUrl = card.image_id 
+    ? `${API_BASE}/api/vision/${card.image_id}` 
+    : card.image;
 
   return (
     <div
       className={`${rotation}`}
+      onClick={onClick}
       style={{
         background: bg.startsWith('bg-[') ? bg.replace('bg-[', '').replace(']', '') : bg === 'bg-white' ? '#fff' : bg === 'bg-yellow-50' ? '#fefce8' : '#fdfcf0',
         border: '1px solid #ddd',
@@ -116,12 +253,13 @@ const PolaroidCard = ({ card, onStar, onDelete }) => {
         display: 'flex', flexDirection: 'column',
         transform: rotation === 'rotate-1' ? 'rotate(1deg)' : rotation === '-rotate-2' ? 'rotate(-2deg)' : rotation === 'rotate-2' ? 'rotate(2deg)' : rotation === '-rotate-1' ? 'rotate(-1deg)' : 'none',
         transition: 'transform 0.2s, box-shadow 0.2s',
+        cursor: 'pointer',
       }}
     >
       {/* Photo area */}
       <div style={{ height: 140, background: '#f0ede6', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
-        {card.image ? (
-          <img src={card.image} alt={card.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        {imageUrl ? (
+          <img src={imageUrl} alt={card.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
           <div style={{ fontSize: 40, color: '#ccc' }}>⚙</div>
         )}

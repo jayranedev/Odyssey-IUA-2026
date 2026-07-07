@@ -3,8 +3,13 @@ import {
   IconCamera, IconX, IconPlus, IconArrowRight, IconSparkle, IconListCheck,
   IconWallet, IconEdit, IconSpeaker, IconStar, IconMap, IconPin, IconArrowSm, IconPencil
 } from './Icons2';
+import { useAuth } from '../context/AuthContext';
+import LoginModal from './LoginModal';
+import QuotaPill from './QuotaPill';
 
 export const AppShell = ({ active = 'workshop', children, bgClass = 'jg2-bg-paper' }) => {
+  const { user, openLogin, showLoginModal, closeLogin, logout } = useAuth();
+  
   return (
     <div className="jg2" style={{
       width: '100vw', height: '100vh',
@@ -15,7 +20,10 @@ export const AppShell = ({ active = 'workshop', children, bgClass = 'jg2-bg-pape
       <header className="jg2-header">
         <div className="jg2-logo">JUGAAD GPT</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <button className="jg2-btn-yellow">New Project</button>
+          <QuotaPill />
+          <button className="jg2-btn-yellow" onClick={openLogin}>
+            {user ? 'LOG OUT' : 'LOG IN'}
+          </button>
           <button aria-label="settings" style={{
             width: 38, height: 38,
             background: 'transparent', border: 'none',
@@ -42,6 +50,8 @@ export const AppShell = ({ active = 'workshop', children, bgClass = 'jg2-bg-pape
         <NavItem id="bazaari" active={active === 'bazaari'} label="Bazaari" icon={<IconStorefront size={24} stroke={1.7}/>} />
         <NavItem id="archive" active={active === 'archive'} label="Archive" icon={<IconArchive size={24} stroke={1.7}/>} />
       </nav>
+
+      {showLoginModal && <LoginModal onClose={closeLogin} />}
     </div>
   );
 };
