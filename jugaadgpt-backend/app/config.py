@@ -49,8 +49,16 @@ class Settings(BaseSettings):
     # Observability (optional)
     sentry_dsn: str = ""
 
+    # Render free-tier keepalive. The backend self-pinger starts only in
+    # production and only when running on Render or when KEEPALIVE_URL is set.
+    keepalive_enabled: bool = True
+    keepalive_url: str = ""
+    keepalive_interval_seconds: int = 600
+    keepalive_initial_delay_seconds: int = 60
+    keepalive_timeout_seconds: int = 10
+
     environment: str = "development"
-    cors_origins: str = "http://localhost:3000,http://localhost:5173"
+    cors_origins: str = "http://localhost:3000,http://localhost:5173,https://jugaadgpt-web.vercel.app"
 
     @property
     def cors_origins_list(self) -> list[str]:
