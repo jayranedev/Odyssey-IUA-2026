@@ -4,7 +4,7 @@ module.exports = function (api) {
     presets: ['babel-preset-expo'],
     overrides: [
       {
-        test: /node_modules/,
+        test: /(EventEmitter|DOMRectReadOnly)\.js$/,
         plugins: [
           ['@babel/plugin-transform-typescript', { isTSX: true, allExtensions: true }],
           ['@babel/plugin-transform-class-properties', { loose: false }],
