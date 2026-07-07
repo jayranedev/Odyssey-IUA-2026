@@ -13,15 +13,15 @@ export const site = {
 
 export const teamMembers = [
   {
-    name: 'Team Member One',
-    role: 'Backend & Pipeline',
+    name: 'Jay Rane',
+    role: 'Backend, Pipeline, Mobile, Extension, Integration',
     photo: '/assets/team/member1.jpg',
     github: 'https://github.com/',
     linkedin: '',
     x: '',
   },
   {
-    name: 'Team Member Two',
+    name: 'Ashden Mascarenhas',
     role: 'Frontend & Design',
     photo: '/assets/team/member2.jpg',
     github: 'https://github.com/',
@@ -29,17 +29,9 @@ export const teamMembers = [
     x: '',
   },
   {
-    name: 'Team Member Three',
-    role: 'Mobile & Extension',
+    name: 'Sumukh Raikar',
+    role: 'WhatsApp & Design',
     photo: '/assets/team/member3.jpg',
-    github: 'https://github.com/',
-    linkedin: '',
-    x: '',
-  },
-  {
-    name: 'Team Member Four',
-    role: 'Data & Ops',
-    photo: '/assets/team/member4.jpg',
     github: 'https://github.com/',
     linkedin: '',
     x: '',
