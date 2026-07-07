@@ -1,0 +1,74 @@
+name: Build & Release Apps
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Install dependencies
+        working-directory: ./expo-app
+        run: npm install
+
+      - name: Expo Prebuild
+        working-directory: ./expo-app
+        run: npx expo prebuild -p android --clean
+
+      - name: Build APK (Release)
+        working-directory: ./expo-app/android
+        run: ./gradlew assembleRelease
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: JugaadGPT.apk
+          path: expo-app/android/app/build/outputs/apk/release/app-release.apk
+
+  build-extension:
+    name: Build Chrome Extension
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        working-directory: ./jugaadgpt-frontend/extension
+        run: npm install
+
+      - name: Build Extension
+        working-directory: ./jugaadgpt-frontend/extension
+        run: npm run build
+
+      - name: Zip Extension
+        working-directory: ./jugaadgpt-frontend/extension
+        run: zip -r ../../jugaadgpt-extension-latest.zip dist
+
+      - name: Upload Extension Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: jugaadgpt-extension-latest.zip
+          path: jugaadgpt-extension-latest.zip
