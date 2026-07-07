@@ -3,8 +3,6 @@ Smoke tests for the pipeline components.
 Run with: pytest tests/ -v
 """
 
-import pytest
-
 from app.pipeline.validator import validate
 from app.schemas.solution import Constraints, Material, Solution
 

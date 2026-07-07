@@ -3,35 +3,12 @@ import { useEffect, useState } from 'react';
 const MAX_MESSAGE_LENGTH = 1900;
 const env = import.meta.env;
 
+// Backend + web app URLs come from build-time env (production) with
+// localhost fallbacks for dev. No LLM keys live in the extension —
+// every query goes through the FastAPI backend.
 const DEFAULT_CONFIG = {
-  backendUrl: 'http://localhost:8000',
-  providers: {
-    anthropic: {
-      label: 'Anthropic',
-      apiKey: env.VITE_ANTHROPIC_API_KEY || '',
-      model: env.VITE_ANTHROPIC_MODEL || 'claude-3-5-sonnet-latest',
-    },
-    groq: {
-      label: 'Groq',
-      apiKey: env.VITE_GROQ_API_KEY || '',
-      model: env.VITE_GROQ_MODEL || 'llama-3.3-70b-versatile',
-    },
-    voyage: {
-      label: 'Voyage',
-      apiKey: env.VITE_VOYAGE_API_KEY || '',
-      model: env.VITE_VOYAGE_MODEL || 'voyage-3-large',
-    },
-    google: {
-      label: 'Google AI',
-      apiKey: env.VITE_GOOGLE_AI_API_KEY || '',
-      model: env.VITE_GOOGLE_AI_MODEL || 'gemma-4-31b-it',
-    },
-    maps: {
-      label: 'Google Maps',
-      apiKey: env.VITE_GOOGLE_MAPS_API_KEY || '',
-      model: env.VITE_GOOGLE_MAPS_MODEL || 'maps-geocoding',
-    },
-  },
+  backendUrl: env.VITE_API_URL || 'http://localhost:8000',
+  webAppUrl: env.VITE_WEB_APP_URL || 'http://localhost:5173',
 };
 
 const storage = {
@@ -46,6 +23,15 @@ const storage = {
   },
 };
 
+async function getDeviceId() {
+  let id = await storage.get('jugaadgptDeviceId');
+  if (!id) {
+    id = crypto.randomUUID();
+    await storage.set({ jugaadgptDeviceId: id });
+  }
+  return id;
+}
+
 function truncateText(value, maxLength) {
   if (!value) return '';
   if (value.length <= maxLength) return value;
@@ -55,7 +41,7 @@ function truncateText(value, maxLength) {
 function detectReplyLanguage(text) {
   const source = (text || '').trim();
   if (!source) return 'english';
-  if (/[\u0900-\u097F]/.test(source)) return 'hindi';
+  if (/[ऀ-ॿ]/.test(source)) return 'hindi';
 
   const romanHindiHints = [
     'kaise', 'kya', 'mera', 'mere', 'meri', 'hai', 'nahi', 'karna', 'karu', 'karoon',
@@ -66,10 +52,6 @@ function detectReplyLanguage(text) {
   const hintMatches = romanHindiHints.filter((hint) => new RegExp(`\\b${hint}\\b`, 'i').test(lowered)).length;
   if (hintMatches >= 2) return 'english';
   return 'english';
-}
-
-function getProviderEntries(config) {
-  return Object.entries(config.providers);
 }
 
 function extractSearchQuery(pageContext) {
@@ -142,22 +124,23 @@ async function pingBackend(url) {
   return response.result;
 }
 
-async function queryBackend(backendUrl, message, lang) {
+async function queryBackend(backendUrl, message, lang, deviceId) {
   const response = await chrome.runtime.sendMessage({
     type: 'JUGAADGPT_QUERY_BACKEND',
     backendUrl,
     payload: message,
-    sessionId: `extension-${Date.now()}`,
+    sessionId: `extension-${deviceId || Date.now()}`,
     lang,
+    deviceId,
   });
 
   if (!response?.ok) {
     throw new Error(response?.error || 'Backend request failed.');
   }
-  return response.result;
+  return response;
 }
 
-function Header({ settingsOpen, onToggleSettings, keyCount }) {
+function Header({ settingsOpen, onToggleSettings }) {
   return (
     <header className="panel hero-panel">
       <div>
@@ -165,7 +148,6 @@ function Header({ settingsOpen, onToggleSettings, keyCount }) {
         <h1>{settingsOpen ? 'Settings' : 'Search workspace'}</h1>
       </div>
       <div className="hero-actions">
-        <div className="badge">{keyCount} keys loaded</div>
         <button className="hero-toggle" onClick={onToggleSettings}>
           {settingsOpen ? 'Back' : 'Settings'}
         </button>
@@ -178,60 +160,31 @@ function SettingsView({
   config,
   busy,
   onBackendUrlChange,
-  onProviderChange,
   onSave,
   onReset,
   onPing,
 }) {
   return (
-    <>
-      <section className="panel">
-        <div className="section-head">
-          <h2>Backend</h2>
-          <button className="ghost-button" onClick={onPing} disabled={busy}>
-            Ping
-          </button>
-        </div>
-        <label className="field">
-          <span>API base URL</span>
-          <input value={config.backendUrl} onChange={onBackendUrlChange} />
-        </label>
-      </section>
-
-      <section className="panel">
-        <div className="section-head">
-          <h2>Provider keys</h2>
-          <button className="ghost-button" onClick={onSave} disabled={busy}>
-            Save
-          </button>
-        </div>
-        <div className="provider-list">
-          {getProviderEntries(config).map(([providerKey, provider]) => (
-            <div className="provider-card" key={providerKey}>
-              <div className="provider-title">{provider.label}</div>
-              <label className="field">
-                <span>Model</span>
-                <input
-                  value={provider.model}
-                  onChange={(event) => onProviderChange(providerKey, 'model', event.target.value)}
-                />
-              </label>
-              <label className="field">
-                <span>API key</span>
-                <input
-                  type="password"
-                  value={provider.apiKey}
-                  onChange={(event) => onProviderChange(providerKey, 'apiKey', event.target.value)}
-                />
-              </label>
-            </div>
-          ))}
-        </div>
+    <section className="panel">
+      <div className="section-head">
+        <h2>Backend</h2>
+        <button className="ghost-button" onClick={onPing} disabled={busy}>
+          Ping
+        </button>
+      </div>
+      <label className="field">
+        <span>API base URL</span>
+        <input value={config.backendUrl} onChange={onBackendUrlChange} />
+      </label>
+      <div className="section-head" style={{ marginTop: 12 }}>
+        <button className="ghost-button" onClick={onSave} disabled={busy}>
+          Save
+        </button>
         <button className="reset-button" onClick={onReset} disabled={busy}>
           Reset defaults
         </button>
-      </section>
-    </>
+      </div>
+    </section>
   );
 }
 
@@ -240,9 +193,12 @@ function WorkspaceView({
   pageContext,
   prompt,
   responseText,
+  quota,
+  loginRequired,
   onPromptChange,
   onRefreshPageContext,
   onRunQuery,
+  onOpenLogin,
 }) {
   return (
     <>
@@ -262,13 +218,24 @@ function WorkspaceView({
 
       <section className="panel">
         <h2>Ask JugaadGPT</h2>
+        {quota ? (
+          <div className="badge">
+            {quota.used}/{quota.limit}{quota.authenticated ? '' : ' free'} today
+          </div>
+        ) : null}
         <label className="field">
           <span>Prompt</span>
           <textarea value={prompt} onChange={onPromptChange} rows={5} />
         </label>
-        <button className="primary-button" onClick={onRunQuery} disabled={busy}>
-          {busy ? 'Working...' : 'Send current page'}
-        </button>
+        {loginRequired ? (
+          <button className="primary-button" onClick={onOpenLogin}>
+            Daily free limit reached — log in on the website
+          </button>
+        ) : (
+          <button className="primary-button" onClick={onRunQuery} disabled={busy}>
+            {busy ? 'Working...' : 'Send current page'}
+          </button>
+        )}
       </section>
 
       <section className="panel">
@@ -287,18 +254,23 @@ export default function ExtensionPopup() {
   const [status, setStatus] = useState('Loading extension config...');
   const [busy, setBusy] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [quota, setQuota] = useState(null);
+  const [loginRequired, setLoginRequired] = useState(false);
+  const [deviceId, setDeviceId] = useState('');
 
   useEffect(() => {
     let active = true;
 
     async function bootstrap() {
       const savedConfig = await storage.get('jugaadgptConfig');
-      const nextConfig = savedConfig || DEFAULT_CONFIG;
+      const nextConfig = { ...DEFAULT_CONFIG, ...(savedConfig || {}) };
+      const id = await getDeviceId();
       const context = await getPageContext();
       const detectedSearchQuery = extractSearchQuery(context);
 
       if (!active) return;
       setConfig(nextConfig);
+      setDeviceId(id);
       setPageContext(context);
       if (detectedSearchQuery) {
         setPrompt(`Help with this search query in a practical JugaadGPT way: ${detectedSearchQuery}`);
@@ -317,19 +289,6 @@ export default function ExtensionPopup() {
     setConfig((current) => ({ ...current, backendUrl: value }));
   };
 
-  const updateProvider = (providerKey, field, value) => {
-    setConfig((current) => ({
-      ...current,
-      providers: {
-        ...current.providers,
-        [providerKey]: {
-          ...current.providers[providerKey],
-          [field]: value,
-        },
-      },
-    }));
-  };
-
   const saveConfig = async () => {
     await storage.set({ jugaadgptConfig: config });
     setStatus('Configuration saved to chrome.storage.local.');
@@ -338,7 +297,7 @@ export default function ExtensionPopup() {
   const resetConfig = async () => {
     setConfig(DEFAULT_CONFIG);
     await storage.set({ jugaadgptConfig: DEFAULT_CONFIG });
-    setStatus('Configuration reset to repo defaults.');
+    setStatus('Configuration reset to build defaults.');
   };
 
   const refreshPageContext = async () => {
@@ -360,6 +319,14 @@ export default function ExtensionPopup() {
     }
   };
 
+  // Login happens on the website (never inside the popup) — after logging
+  // in there, the higher account quota applies to future extension queries
+  // from this device only once the backend sees the same device id, so we
+  // simply direct the user to the web app.
+  const openWebLogin = () => {
+    chrome.tabs.create({ url: `${config.webAppUrl.replace(/\/$/, '')}/?login=1` });
+  };
+
   const runQuery = async () => {
     setBusy(true);
     setResponseText('Working...');
@@ -367,9 +334,16 @@ export default function ExtensionPopup() {
     try {
       const message = buildMessage(prompt, pageContext || {});
       const lang = detectReplyLanguage(prompt || extractSearchQuery(pageContext) || '');
-      const result = await queryBackend(config.backendUrl, message, lang);
-      setResponseText(result);
-      setStatus('Response received.');
+      const response = await queryBackend(config.backendUrl, message, lang, deviceId);
+      if (response.quota) setQuota(response.quota);
+      if (response.loginRequired) {
+        setLoginRequired(true);
+        setResponseText(response.result || 'Daily free limit reached — log in on the website to continue.');
+        setStatus('Daily free limit reached.');
+      } else {
+        setResponseText(response.result);
+        setStatus('Response received.');
+      }
     } catch (error) {
       setResponseText(error.message || 'Request failed.');
       setStatus(error.message);
@@ -383,7 +357,6 @@ export default function ExtensionPopup() {
       <Header
         settingsOpen={settingsOpen}
         onToggleSettings={() => setSettingsOpen((current) => !current)}
-        keyCount={getProviderEntries(config).length}
       />
 
       <section className="panel status-panel">
@@ -396,7 +369,6 @@ export default function ExtensionPopup() {
           config={config}
           busy={busy}
           onBackendUrlChange={updateBackendUrl}
-          onProviderChange={updateProvider}
           onSave={saveConfig}
           onReset={resetConfig}
           onPing={runHealthCheck}
@@ -407,9 +379,12 @@ export default function ExtensionPopup() {
           pageContext={pageContext}
           prompt={prompt}
           responseText={responseText}
+          quota={quota}
+          loginRequired={loginRequired}
           onPromptChange={(event) => setPrompt(event.target.value)}
           onRefreshPageContext={refreshPageContext}
           onRunQuery={runQuery}
+          onOpenLogin={openWebLogin}
         />
       )}
     </div>

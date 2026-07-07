@@ -1,0 +1,41 @@
+# Weekly Postgres backup → gzipped workflow artifact (90-day retention).
+#
+# ⚠️ AFTER PUSHING, YOU MUST:
+#   1. Enable GitHub Actions for the repo.
+#   2. Add repo secret DATABASE_URL — the Supabase SESSION pooler URL
+#      (port 5432) with sslmode, e.g.:
+#      postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres?sslmode=require
+#
+# Restore command is documented in docs/DEPLOY.md (appendix).
+
+name: backup
+
+on:
+  schedule:
+    - cron: "0 2 * * 0"   # Sundays 02:00 UTC
+  workflow_dispatch: {}
+
+jobs:
+  pg-dump:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Install postgres client
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q postgresql-client
+
+      - name: Dump database
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          STAMP=$(date -u +%Y%m%d-%H%M%S)
+          pg_dump "$DATABASE_URL" --no-owner --no-privileges | gzip > "jugaadgpt-$STAMP.sql.gz"
+          ls -lh jugaadgpt-*.sql.gz
+
+      - name: Upload artifact (90-day retention)
+        uses: actions/upload-artifact@v4
+        with:
+          name: pg-backup-${{ github.run_id }}
+          path: jugaadgpt-*.sql.gz
+          retention-days: 90

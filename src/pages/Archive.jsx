@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import usePageTitle from '../hooks/usePageTitle';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const BAZAARI_KEY = 'jg_bazaari';
@@ -202,6 +203,7 @@ const SolutionModal = ({ card, onClose }) => {
 // ── Archive page ──────────────────────────────────────────────
 
 const Archive = () => {
+  usePageTitle('Archive');
   const [cards, setCards] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);

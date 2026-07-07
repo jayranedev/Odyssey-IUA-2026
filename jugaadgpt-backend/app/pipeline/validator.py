@@ -4,6 +4,8 @@ This is the moat: rules that the generator cannot violate.
 Hard failures trigger a regeneration. Soft warnings are passed through.
 """
 
+import re
+
 from app.schemas.solution import Constraints, Solution, ValidationResult
 
 POWER_TOOLS = {
@@ -12,6 +14,31 @@ POWER_TOOLS = {
 }
 
 HIGH_SKILL_TERMS = {"welding", "soldering", "machining", "lathe", "circuit"}
+
+# Negation window: a flagged term preceded within ~3 tokens by one of these is
+# describing the ABSENCE of the thing ("no electricity needed", "bina motor ke")
+# and must not trip the rule.
+_NEGATORS = {"no", "not", "without", "bina", "nahi", "nahin", "zero"}
+_NEGATION_WINDOW = 3
+
+
+def _find_flagged_terms(terms: set[str], text: str) -> list[str]:
+    """Word-boundary term matching with a negation window.
+
+    A term matches a token exactly, or as a prefix of a longer word when the
+    term is ≥4 chars ("electric" → "electricity"; but "fan" never matches
+    "fantastic"). Matches preceded within _NEGATION_WINDOW tokens by a negator
+    are skipped.
+    """
+    tokens = re.findall(r"[a-z]+", text.lower())
+    found: set[str] = set()
+    for i, tok in enumerate(tokens):
+        for term in terms:
+            if tok == term or (len(term) >= 4 and tok.startswith(term)):
+                window = tokens[max(0, i - _NEGATION_WINDOW):i]
+                if not (_NEGATORS & set(window)):
+                    found.add(term)
+    return sorted(found)
 
 MONSOON_INCOMPATIBLE = {
     "solar dryer", "sun drying", "evaporative", "zeer pot", "clay pot cooler",
@@ -36,12 +63,12 @@ def validate(solution: Solution, constraints: Constraints) -> ValidationResult:
 
     # Hard rule 2: No power
     if constraints.power_availability == "none":
-        combined_text = (
-            " ".join(solution.build_steps).lower()
-            + solution.summary.lower()
-            + " ".join(m.item for m in solution.materials).lower()
-        )
-        found_power_tools = [t for t in POWER_TOOLS if t in combined_text]
+        combined_text = " ".join([
+            " ".join(solution.build_steps),
+            solution.summary,
+            " ".join(m.item for m in solution.materials),
+        ])
+        found_power_tools = _find_flagged_terms(POWER_TOOLS, combined_text)
         if found_power_tools:
             hard_failures.append(
                 f"Solution references power-dependent items ({', '.join(found_power_tools)}) "
@@ -50,8 +77,8 @@ def validate(solution: Solution, constraints: Constraints) -> ValidationResult:
 
     # Hard rule 3: Skill level
     if constraints.skill_level == "basic":
-        steps_text = " ".join(solution.build_steps).lower()
-        found_high_skill = [t for t in HIGH_SKILL_TERMS if t in steps_text]
+        steps_text = " ".join(solution.build_steps)
+        found_high_skill = _find_flagged_terms(HIGH_SKILL_TERMS, steps_text)
         if found_high_skill:
             hard_failures.append(
                 f"Solution requires advanced skills ({', '.join(found_high_skill)}) "

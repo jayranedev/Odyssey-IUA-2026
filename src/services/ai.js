@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+import { API_BASE, authHeaders } from './api';
 
 let _sessionId = null;
 function getSessionId() {
@@ -18,7 +18,7 @@ export const getGemmaResponse = async (prompt, history = []) => {
 
     const res = await fetch(`${API_BASE}/api/query`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ session_id: getSessionId(), message, channel: 'web' }),
     });
 

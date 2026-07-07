@@ -1,6 +1,7 @@
 """
 RAG Retriever — fetches the top-k most relevant jugaad cases via pgvector.
-Uses Voyage AI for query embedding (matches how documents were indexed).
+Embeds the query locally with sentence-transformers (same model that indexed
+the documents — see scripts/reembed_cases.py).
 Falls back to hero_cases.json when DB is empty (dev mode / before seeding).
 """
 
@@ -44,7 +45,7 @@ async def retrieve_cases(constraints: Constraints, db: AsyncSession, top_k: int 
     query_embedding = await embed_query(query_text)
 
     # asyncpg doesn't support :param::vector casting — embed the vector literal directly.
-    # query_embedding comes from Voyage (trusted float list), not user input.
+    # query_embedding is a locally computed float list, not user input.
     vec_literal = "[" + ",".join(str(x) for x in query_embedding) + "]"
     result = await db.execute(
         text(f"""

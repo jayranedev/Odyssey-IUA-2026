@@ -1,6 +1,10 @@
-import requests
-import json
 import base64
+import json
+import logging
+
+import requests
+
+logger = logging.getLogger(__name__)
 
 def send_request(prompt=None, index=None):
     if prompt is None:
@@ -36,7 +40,8 @@ def send_request(prompt=None, index=None):
             for item in data_list:
                 if isinstance(item, list):
                     res = find_target(item)
-                    if res: return res
+                    if res:
+                        return res
                 elif isinstance(item, str) and "bytesBase64Encoded" in item:
                     return item
             return None
@@ -56,11 +61,11 @@ def send_request(prompt=None, index=None):
             with open(f"image{index}.png", "wb") as fh:
                 fh.write(base64.b64decode(base64_data))
 
-            print(f"Successfully saved image{index}.png")
+            logger.info("Successfully saved image%s.png", index)
             return base64_data
 
     except Exception as e:
-        print(f"Request failed: {e}")
+        logger.warning("Request failed: %s", e)
 
     return None
 

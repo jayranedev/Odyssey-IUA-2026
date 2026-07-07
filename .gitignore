@@ -1,6 +1,9 @@
 node_modules
 v
 .env
+.env.local
 .env.example.env
 .npm-cache
-node_modules
+.vite
+dist/
+dist-packages/

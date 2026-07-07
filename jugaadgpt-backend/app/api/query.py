@@ -1,27 +1,44 @@
 """
 POST /api/query        — main pipeline endpoint (SSE stream, supports conversation history)
 POST /api/transcribe   — convert audio file → text (web voice input)
-POST /api/tts          — text → speech (for web voice reply)
+POST /api/tts          — text → speech MP3 (web + Expo voice reply, edge-tts)
+POST /api/tts-b64      — text → base64 MP3 (Expo app compatibility wrapper)
 
-Flow: extract constraints → clarify if incomplete → retrieve cases → generate (streaming) → validate
+Flow: extract constraints → clarify if incomplete → quota gate → retrieve cases
+      → generate (streaming) → validate (deterministic, with retry loop)
+
+SSE events: quota, status, token, clarification, solution, capacity,
+            login_required, quota_exhausted, error
 """
 
+import base64
 import json
+import logging
 import time
 from datetime import date
 
-from fastapi import APIRouter, File, UploadFile
+from fastapi import APIRouter, Depends, File, Request, UploadFile
 from fastapi.responses import Response, StreamingResponse
+from loguru import logger as struct_log
 
-from app.config import settings
+from app.auth import AuthUser, get_client_ip, get_current_user_optional, get_device_id
 from app.db import AsyncSessionLocal
+from app.llm import router as llm_router
+from app.llm.parsing import extract_json_array
+from app.llm.router import AllProvidersExhausted
 from app.pipeline.extractor import extract_constraints
-from app.pipeline.generator import generate_solution, generate_solution_stream
+from app.pipeline.generator import generate_solution, generate_solution_stream, parse_solution
 from app.pipeline.retriever import retrieve_cases
 from app.pipeline.validator import validate
 from app.schemas.query import QueryRequest
 from app.services.conversation import add_turn, format_history_for_prompt
+from app.services.embeddings import EmbeddingsExhausted
+from app.services.quota import get_quota_status, increment_quota
 from app.services.transcription import transcribe_audio
+
+logger = logging.getLogger(__name__)
+
+CAPACITY_MESSAGE = "Daily free capacity reached. Try again after midnight UTC."
 
 
 def _auto_season() -> str:
@@ -46,13 +63,45 @@ router = APIRouter()
 MAX_RETRIES = 2
 
 
+def _quota_payload(status) -> str:
+    return json.dumps({
+        "type": "quota",
+        "used": status.used,
+        "limit": status.limit,
+        "authenticated": status.authenticated,
+    })
+
+
 @router.post("/query")
-async def query(request: QueryRequest):
+async def query(
+    request: QueryRequest,
+    http_request: Request,
+    user: AuthUser | None = Depends(get_current_user_optional),
+):
+    device_id = get_device_id(http_request) or request.session_id
+    client_ip = get_client_ip(http_request)
+
     async def event_stream():
         start = time.monotonic()
-        full_solution_text = ""
 
         try:
+            # Quota status first, so every UI can render the pill immediately
+            quota = await get_quota_status(user, device_id, client_ip)
+            yield _sse("quota", _quota_payload(quota))
+
+            if quota.exceeded:
+                if quota.authenticated:
+                    yield _sse("quota_exhausted", json.dumps({
+                        "type": "quota_exhausted",
+                        "message": f"You've used all {quota.limit} jugaads for today. Resets at midnight UTC.",
+                    }))
+                else:
+                    yield _sse("login_required", json.dumps({
+                        "type": "login_required",
+                        "message": f"You've used your {quota.limit} free jugaads today — log in to continue and save your chats.",
+                    }))
+                return
+
             # Load conversation history for this session
             history = format_history_for_prompt(request.session_id)
 
@@ -73,6 +122,7 @@ async def query(request: QueryRequest):
                 constraints.location_state = request.location_state
 
             # Step 2: Check truly critical missing fields (never asks for optional ones)
+            # Clarifying turns don't touch the quota — only generation counts.
             missing = _compute_missing(constraints)
             if missing:
                 question = _build_clarifying_question(missing, request.lang)
@@ -89,9 +139,14 @@ async def query(request: QueryRequest):
             async with AsyncSessionLocal() as db:
                 cases = await retrieve_cases(constraints, db)
 
-            # Step 4: Generate solution with retry loop
+            # The generator is about to run — this is the moment the quota is spent.
+            quota = await increment_quota(user, device_id, client_ip)
+            yield _sse("quota", _quota_payload(quota))
+
+            # Step 4: Generate solution with validator retry loop
             solution = None
-            retry_prompt_addition = ""
+            retry_hint = ""
+            validation_retries = 0
 
             for attempt in range(MAX_RETRIES + 1):
                 if attempt == 0:
@@ -103,85 +158,45 @@ async def query(request: QueryRequest):
                         full_text += token
                         yield _sse("token", token)
 
-                    # Parse the streamed result
+                    # Parse the streamed result (tolerant of fences/prose)
                     try:
-                        raw = full_text.strip()
-                        if raw.startswith("```"):
-                            raw = raw.split("```")[1]
-                            if raw.startswith("json"):
-                                raw = raw[4:]
-                        data = json.loads(raw)
-                        from app.schemas.solution import Material, Solution
-                        solution = Solution(
-                            title=data.get("title", ""),
-                            summary=data.get("summary", ""),
-                            materials=[Material(**m) for m in data.get("materials", [])],
-                            total_cost_inr=data.get("total_cost_inr", 0),
-                            build_steps=data.get("build_steps", []),
-                            expected_outcome=data.get("expected_outcome", ""),
-                            failure_modes=data.get("failure_modes", []),
-                            maintenance=data.get("maintenance", ""),
-                            skill_check=data.get("skill_check", ""),
-                        )
+                        solution = parse_solution(full_text)
                     except Exception:
                         yield _sse("error", "Failed to parse solution. Please try again.")
                         return
                 else:
-                    # Retry without streaming (hidden from user)
+                    # Retry without streaming (hidden from user), carrying the
+                    # validator's fix-it hint so hard rules get corrected.
                     yield _sse("status", f"Refining solution (attempt {attempt + 1})...")
-                    solution = await generate_solution(constraints, cases)
+                    solution = await generate_solution(
+                        constraints, cases, history, request.lang,
+                        retry_hint=retry_hint,
+                    )
 
-                # Step 5: Validate
+                # Step 5: Validate (deterministic — the moat)
                 result = validate(solution, constraints)
-
                 if result.passed:
                     break
-
-                if attempt < MAX_RETRIES:
-                    retry_prompt_addition = result.retry_prompt_addition
-                    # Patch the user message for next attempt
-                    from app.pipeline.generator import _build_user_prompt
-                    # Re-run generate_solution with the retry hint appended
-                    import anthropic
-                    from app.llm.anthropic_client import get_client
-                    from app.pipeline.generator import GENERATE_SYSTEM
-                    client = get_client()
-                    patched_prompt = _build_user_prompt(constraints, cases) + retry_prompt_addition
-                    response = await client.messages.create(
-                        model="claude-sonnet-4-6",
-                        max_tokens=4096,
-                        system=GENERATE_SYSTEM,
-                        messages=[{"role": "user", "content": patched_prompt}],
-                    )
-                    raw = response.content[0].text.strip()
-                    if raw.startswith("```"):
-                        raw = raw.split("```")[1]
-                        if raw.startswith("json"):
-                            raw = raw[4:]
-                    data = json.loads(raw)
-                    from app.schemas.solution import Material, Solution
-                    solution = Solution(
-                        title=data.get("title", ""),
-                        summary=data.get("summary", ""),
-                        materials=[Material(**m) for m in data.get("materials", [])],
-                        total_cost_inr=data.get("total_cost_inr", 0),
-                        build_steps=data.get("build_steps", []),
-                        expected_outcome=data.get("expected_outcome", ""),
-                        failure_modes=data.get("failure_modes", []),
-                        maintenance=data.get("maintenance", ""),
-                        skill_check=data.get("skill_check", ""),
-                    )
-                    result = validate(solution, constraints)
-                    if result.passed:
-                        break
+                retry_hint = result.retry_prompt_addition
+                validation_retries = attempt + 1
 
             # Step 6: Emit final validated solution
             validation_result = validate(solution, constraints)
             latency_ms = (time.monotonic() - start) * 1000
 
             # Save turn to conversation memory
-            full_solution_text = f"{solution.title}: {solution.summary}"
-            add_turn(request.session_id, request.message, full_solution_text)
+            add_turn(request.session_id, request.message, f"{solution.title}: {solution.summary}")
+
+            # One structured line per query — metadata only, never content/tokens.
+            struct_log.bind(
+                provider=llm_router.get_used_provider("generator"),
+                role="generator",
+                latency_ms=round(latency_ms),
+                quota_type="user" if user else "anon",
+                validation_retries=validation_retries,
+                validation_passed=validation_result.passed,
+                channel=request.channel,
+            ).info("query completed")
 
             yield _sse("solution", json.dumps({
                 "solution": solution.model_dump(),
@@ -189,7 +204,13 @@ async def query(request: QueryRequest):
                 "latency_ms": round(latency_ms),
             }))
 
+        except (AllProvidersExhausted, EmbeddingsExhausted):
+            yield _sse("capacity", json.dumps({
+                "type": "capacity",
+                "message": CAPACITY_MESSAGE,
+            }))
         except Exception as e:
+            logger.exception("Query pipeline failed")
             yield _sse("error", str(e))
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
@@ -202,7 +223,7 @@ def _sse(event: str, data: str) -> str:
 @router.post("/transcribe")
 async def transcribe(audio: UploadFile = File(...)):
     """
-    Web voice input: audio file → transcript text.
+    Web voice input: audio file → transcript text (Groq Whisper, free tier).
     Browser records with MediaRecorder → POST here → show transcript → user edits → POST /api/query.
     """
     audio_bytes = await audio.read()
@@ -214,89 +235,45 @@ async def transcribe(audio: UploadFile = File(...)):
 @router.post("/tts")
 async def text_to_speech(body: dict):
     """
-    Web voice reply: text → audio (wav bytes) via Sarvam AI Bulbul.
-    Body: {"text": "...", "lang": "hi-IN"}
+    Voice reply: text → MP3 via edge-tts (free, Indian voices).
+    Body: {"text": "...", "lang": "hi-IN" | "hinglish" | "english" | ...}
     Always returns a valid response so CORS headers are preserved.
     """
-    import base64
-    import logging as _logging
-    import httpx as _httpx
-
-    _log = _logging.getLogger(__name__)
+    from app.services.tts import synthesize_mp3
 
     text = (body.get("text") or "").strip()
-    lang = body.get("lang") or "hi-IN"
-    if not text or not settings.sarvam_api_key:
+    lang = body.get("lang") or "hinglish"
+    if not text:
         return Response(status_code=204)
 
-    lang_map = {
-        "hi-IN": "hi-IN", "hinglish": "hi-IN",
-        "en-IN": "en-IN", "en-US": "en-IN", "en-GB": "en-IN",
-    }
-    sarvam_lang = lang_map.get(lang, "hi-IN")
-
     try:
-        payload = {
-            "text": text[:2500],
-            "target_language_code": sarvam_lang,
-            "speaker": "manan",
-            "model": "bulbul:v3",
-            "pace": 0.9,
-            "speech_sample_rate": 24000,
-        }
-        async with _httpx.AsyncClient(timeout=20) as client:
-            resp = await client.post(
-                "https://api.sarvam.ai/text-to-speech",
-                json=payload,
-                headers={"api-subscription-key": settings.sarvam_api_key},
-            )
-            if resp.status_code != 200:
-                _log.warning("Sarvam TTS 400 body: %s", resp.text[:500])
-                resp.raise_for_status()
-
-        audio_b64 = resp.json()["audios"][0]
-        audio_bytes = base64.b64decode(audio_b64)
-        return Response(content=audio_bytes, media_type="audio/wav")
-
+        audio_bytes = await synthesize_mp3(text, lang)
+        return Response(content=audio_bytes, media_type="audio/mpeg")
     except Exception as exc:
-        _log.warning("Sarvam TTS failed: %s", exc)
+        logger.warning("edge-tts failed: %s", exc)
         return Response(status_code=204)
 
 
 @router.post("/tts-b64")
-async def tts_elevenlabs(body: dict):
+async def tts_base64(body: dict):
     """
-    Mobile TTS: text → base64 MP3 via ElevenLabs multilingual.
+    Expo app TTS: text → base64 MP3 via edge-tts.
     Body: {"text": "...", "lang": "hinglish|english|hindi"}
     Returns: {"audio_base64": "<mp3 base64>" | ""}
     """
-    import base64
-    import httpx as _httpx
+    from app.services.tts import synthesize_mp3
 
     text = (body.get("text") or "").strip()
-    if not text or not settings.elevenlabs_api_key:
+    lang = body.get("lang") or "hinglish"
+    if not text:
         return {"audio_base64": ""}
 
     try:
-        async with _httpx.AsyncClient(timeout=25) as client:
-            resp = await client.post(
-                f"https://api.elevenlabs.io/v1/text-to-speech/{settings.elevenlabs_voice_id}",
-                headers={
-                    "xi-api-key": settings.elevenlabs_api_key,
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "text": text[:2500],
-                    "model_id": "eleven_multilingual_v2",
-                    "voice_settings": {"stability": 0.45, "similarity_boost": 0.80, "style": 0.3},
-                },
-            )
-        if resp.status_code == 200:
-            return {"audio_base64": base64.b64encode(resp.content).decode()}
-        logger.warning("ElevenLabs TTS %s: %s", resp.status_code, resp.text[:200])
+        audio_bytes = await synthesize_mp3(text, lang)
+        return {"audio_base64": base64.b64encode(audio_bytes).decode()}
     except Exception as exc:
-        logger.warning("ElevenLabs TTS failed: %s", exc)
-    return {"audio_base64": ""}
+        logger.warning("edge-tts (b64) failed: %s", exc)
+        return {"audio_base64": ""}
 
 
 @router.post("/generate-image")
@@ -318,7 +295,7 @@ async def generate_image(body: dict):
 async def ocr_scan(body: dict):
     """
     Image → list of items/materials (for the Workshop scraps list).
-    Uses Claude vision to identify objects in the photo.
+    Uses the router's vision role to identify objects in the photo.
     Body: {"image_base64": "...", "image_type": "image/jpeg"}
     """
     image_base64 = body.get("image_base64", "")
@@ -326,40 +303,36 @@ async def ocr_scan(body: dict):
     if not image_base64:
         return {"items": []}
 
-    from app.llm.anthropic_client import get_client
-    client = get_client()
-    response = await client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=300,
-        messages=[{
-            "role": "user",
-            "content": [
-                {
-                    "type": "image",
-                    "source": {"type": "base64", "media_type": image_type, "data": image_base64},
-                },
-                {
-                    "type": "text",
-                    "text": (
-                        "List all visible items, materials, tools, or objects in this image. "
-                        "Return ONLY a JSON array of short strings (1-4 words each), no other text. "
-                        "Max 10 items. Example: [\"Iron rod\", \"PVC pipe\", \"Old tyre\"]"
-                    ),
-                },
-            ],
-        }],
-    )
-    raw = response.content[0].text.strip()
-    if raw.startswith("```"):
-        raw = raw.split("```")[1]
-        if raw.startswith("json"):
-            raw = raw[4:]
     try:
-        items = json.loads(raw.strip())
-        if isinstance(items, list):
-            return {"items": [str(i) for i in items[:10]]}
-    except Exception:
-        pass
+        raw = await llm_router.complete(
+            role="vision",
+            system="",
+            messages=[{
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:{image_type};base64,{image_base64}"},
+                    },
+                    {
+                        "type": "text",
+                        "text": (
+                            "List all visible items, materials, tools, or objects in this image. "
+                            "Return ONLY a JSON array of short strings (1-4 words each), no other text. "
+                            "Max 10 items. Example: [\"Iron rod\", \"PVC pipe\", \"Old tyre\"]"
+                        ),
+                    },
+                ],
+            }],
+            max_tokens=300,
+            temperature=0.1,
+        )
+    except AllProvidersExhausted:
+        return {"items": []}
+
+    items = extract_json_array(raw)
+    if isinstance(items, list):
+        return {"items": [str(i) for i in items[:10]]}
     return {"items": []}
 
 

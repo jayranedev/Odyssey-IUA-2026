@@ -1,12 +1,13 @@
 """
 Solution Generator — Call 2 of 2 in the pipeline.
-Uses Sonnet with retrieved cases as grounding. Streams output.
+Uses the large router role with retrieved cases as grounding. Streams output.
 """
 
 import json
 from collections.abc import AsyncGenerator
 
-from app.llm.anthropic_client import get_client
+from app.llm import router
+from app.llm.parsing import extract_json_object
 from app.schemas.solution import Constraints, Material, Solution
 
 GENERATE_SYSTEM = """You are JugaadGPT — a fabricator's notebook, not a consultant.
@@ -20,7 +21,7 @@ HARD RULES (never violate):
 - Use only materials available in the user's region (state/climate)
 - Build steps must be completable at the stated skill_level
 
-OUTPUT FORMAT (respond with valid JSON only, no markdown):
+OUTPUT FORMAT (respond with ONLY a JSON object — no markdown fences, no commentary, no text before or after the JSON):
 {
   "title": "Short descriptive name for the solution",
   "summary": "One paragraph: what it is and why it works for this constraint set",
@@ -70,52 +71,65 @@ LANGUAGE: Write all text values (title, summary, build_steps, expected_outcome, 
 Generate a solution that fits EXACTLY within these constraints. JSON only."""
 
 
+def parse_solution(raw: str) -> Solution:
+    """Tolerant parse of model output into a Solution. Raises ValueError on garbage."""
+    data = extract_json_object(raw)
+    if data is None:
+        raise ValueError("Model output contained no JSON object")
+    materials = []
+    for m in data.get("materials", []):
+        if isinstance(m, dict):
+            m.setdefault("item", "")
+            m.setdefault("cost_inr", 0)
+            m.setdefault("source", "unknown")
+            materials.append(Material(**{k: m[k] for k in ("item", "quantity", "cost_inr", "source") if k in m}))
+    return Solution(
+        title=data.get("title", ""),
+        summary=data.get("summary", ""),
+        materials=materials,
+        total_cost_inr=data.get("total_cost_inr", 0) or 0,
+        build_steps=[str(s) for s in data.get("build_steps", [])],
+        expected_outcome=data.get("expected_outcome", ""),
+        failure_modes=[str(f) for f in data.get("failure_modes", [])],
+        maintenance=data.get("maintenance", "") or "",
+        skill_check=data.get("skill_check", "") or "",
+    )
+
+
 async def generate_solution_stream(
     constraints: Constraints,
     cases: list[dict],
     conversation_history: str = "",
     language: str = "hinglish",
 ) -> AsyncGenerator[str, None]:
-    client = get_client()
     prompt = _build_user_prompt(constraints, cases, conversation_history, language)
-
-    async with client.messages.stream(
-        model="claude-sonnet-4-6",
-        max_tokens=4096,
+    async for text in router.stream(
+        role="generator",
         system=GENERATE_SYSTEM,
         messages=[{"role": "user", "content": prompt}],
-    ) as stream:
-        async for text in stream.text_stream:
-            yield text
-
-
-async def generate_solution(constraints: Constraints, cases: list[dict], conversation_history: str = "", language: str = "hinglish") -> Solution:
-    """Non-streaming version for internal use (validator retries)."""
-    client = get_client()
-    prompt = _build_user_prompt(constraints, cases, conversation_history, language)
-
-    response = await client.messages.create(
-        model="claude-sonnet-4-6",
         max_tokens=4096,
+    ):
+        yield text
+
+
+async def generate_solution(
+    constraints: Constraints,
+    cases: list[dict],
+    conversation_history: str = "",
+    language: str = "hinglish",
+    retry_hint: str = "",
+) -> Solution:
+    """Non-streaming version for internal use (validator retries).
+
+    retry_hint: the validator's retry_prompt_addition, appended so the model
+    fixes the exact hard-rule violation on the next attempt.
+    """
+    prompt = _build_user_prompt(constraints, cases, conversation_history, language) + retry_hint
+    raw = await router.complete(
+        role="generator",
         system=GENERATE_SYSTEM,
         messages=[{"role": "user", "content": prompt}],
+        max_tokens=4096,
+        json_mode=True,
     )
-    raw = response.content[0].text.strip()
-    if raw.startswith("```"):
-        raw = raw.split("```")[1]
-        if raw.startswith("json"):
-            raw = raw[4:]
-    data = json.loads(raw)
-
-    materials = [Material(**m) for m in data.get("materials", [])]
-    return Solution(
-        title=data.get("title", ""),
-        summary=data.get("summary", ""),
-        materials=materials,
-        total_cost_inr=data.get("total_cost_inr", 0),
-        build_steps=data.get("build_steps", []),
-        expected_outcome=data.get("expected_outcome", ""),
-        failure_modes=data.get("failure_modes", []),
-        maintenance=data.get("maintenance", ""),
-        skill_check=data.get("skill_check", ""),
-    )
+    return parse_solution(raw)

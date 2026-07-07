@@ -1,0 +1,40 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: jugaadgpt-backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies (slim — no torch/local-embeddings extra)
+        run: |
+          pip install poetry
+          poetry config virtualenvs.create false
+          poetry install --no-root --no-interaction
+      - name: Ruff
+        run: ruff check app scripts tests
+      - name: Pytest (embeddings + LLM fully mocked, no external calls)
+        run: pytest tests/ -q
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Build root web app
+        env:
+          VITE_API_URL: https://api.example.com
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build

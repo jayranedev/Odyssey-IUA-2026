@@ -1,5 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { authHeaders } from '../services/api';
+import usePageTitle from '../hooks/usePageTitle';
 
 const WORKSHOP_KEY = 'jg_workshop_draft';
 const SESSIONS_KEY = 'jg_sessions_v2';
@@ -105,6 +107,7 @@ async function compressToBase64(file, maxWidth = 1024, quality = 0.82) {
 }
 
 const Workshop = () => {
+  usePageTitle('Workshop');
   const navigate = useNavigate();
   const [problem, setProblem] = useState('');
   const [scraps, setScraps] = useState(['Old cycle rim', 'PVC Pipe (2 meters)', '']);
@@ -138,7 +141,7 @@ const Workshop = () => {
       const base64 = await compressToBase64(file, 1024, 0.82);
       const res = await fetch(`${API_BASE}/api/ocr`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ image_base64: base64, image_type: file.type || 'image/jpeg' }),
       });
       if (!res.ok) throw new Error('OCR failed');

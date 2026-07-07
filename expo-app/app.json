@@ -12,6 +12,11 @@
     "assetBundlePatterns": [
       "**/*"
     ],
+    "extra": {
+      "apiBaseUrl": "https://api.example.com",
+      "supabaseUrl": "",
+      "supabaseAnonKey": ""
+    },
     "android": {
       "package": "com.jugaadgpt.mobile",
       "permissions": [

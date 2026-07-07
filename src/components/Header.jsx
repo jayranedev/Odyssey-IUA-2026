@@ -1,4 +1,5 @@
 import React from 'react';
+import QuotaPill from './QuotaPill';
 
 const Header = () => {
   return (
@@ -9,6 +10,7 @@ const Header = () => {
         </h1>
       </div>
       <div className="flex items-center gap-3">
+        <QuotaPill />
         <button className="bg-[#FFD700] border-2 border-black px-4 py-2 font-display font-black text-sm tracking-tighter uppercase active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all shadow-jugaad-black hover:bg-[#1A4B84] hover:text-white">
           NEW PROJECT
         </button>

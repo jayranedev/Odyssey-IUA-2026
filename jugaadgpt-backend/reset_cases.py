@@ -1,4 +1,4 @@
-"""One-time: truncate jugaad_cases to clear stale Voyage embeddings before re-seeding."""
+"""One-time: truncate jugaad_cases to clear stale embeddings before re-seeding."""
 import asyncio
 import sys
 from pathlib import Path

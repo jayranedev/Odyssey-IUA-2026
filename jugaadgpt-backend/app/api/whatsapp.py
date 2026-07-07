@@ -8,7 +8,6 @@ Outgoing replies go via POST to graph.facebook.com, not TwiML.
 """
 
 import base64
-import json
 import logging
 import time
 from collections import OrderedDict
@@ -17,11 +16,14 @@ import httpx
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request
 
 from app.config import settings
+from app.llm.router import AllProvidersExhausted
 from app.pipeline.extractor import extract_constraints
 from app.pipeline.generator import generate_solution
 from app.pipeline.retriever import retrieve_cases
 from app.pipeline.validator import validate
 from app.schemas.solution import Constraints
+from app.services.embeddings import EmbeddingsExhausted
+from app.services.quota import get_wa_quota_used, increment_wa_quota, wa_quota_limit
 from app.services.transcription import transcribe_audio
 
 logger = logging.getLogger(__name__)
@@ -110,6 +112,18 @@ _ERROR_MSG = {
     "hindi": "कुछ गड़बड़ हो गई। दोबारा कोशिश करें।",
     "hinglish": "Kuch problem ho gayi. Dobara try karein.",
     "english": "Something went wrong. Please try again.",
+}
+
+_QUOTA_MSG = {
+    "hindi": "आज के आपके {limit} मुफ़्त जुगाड़ पूरे हो गए! कल फिर से try करें (रात 12 बजे UTC के बाद)। 🙏",
+    "hinglish": "Aaj ke aapke {limit} free jugaad pure ho gaye! Kal phir try karein (raat 12 baje UTC ke baad). 🙏",
+    "english": "You've used all {limit} free jugaads for today! Please try again tomorrow (after midnight UTC). 🙏",
+}
+
+_CAPACITY_MSG = {
+    "hindi": "हमारे सर्वर आज full हो गए हैं। रात 12 बजे UTC के बाद फिर से try करें। 🙏",
+    "hinglish": "Hamare servers aaj full ho gaye hain. Raat 12 baje UTC ke baad phir try karein. 🙏",
+    "english": "Our servers are full for today. Please try again after midnight UTC. 🙏",
 }
 
 # ── In-memory session state ──────────────────────────────────────────────────
@@ -272,44 +286,32 @@ async def _handle_message(message: dict, phone_number_id: str):
             await _send_whatsapp_message(phone_number_id, sender, question)
             return
 
+        # Quota gate — only actual generation counts, clarifying turns are free.
+        # Phone number IS the identity on WhatsApp.
+        limit = wa_quota_limit()
+        if await get_wa_quota_used(sender) >= limit:
+            msg = _QUOTA_MSG.get(language, _QUOTA_MSG["hinglish"]).format(limit=limit)
+            await _send_whatsapp_message(phone_number_id, sender, msg)
+            return
+
         # All critical constraints present — build final Constraints and generate
         final_constraints = Constraints(**{**merged_dict, "missing_constraints": []})
         conversation_history = "\n".join(all_messages[:-1]) if len(all_messages) > 1 else ""
 
+        await increment_wa_quota(sender)
+
         async with AsyncSessionLocal() as db:
             cases = await retrieve_cases(final_constraints, db)
-            solution = await generate_solution(final_constraints, cases, conversation_history, language)
-            validation = validate(solution, final_constraints)
 
-            if not validation.passed and validation.retry_prompt_addition:
-                from app.pipeline.generator import GENERATE_SYSTEM, _build_user_prompt
-                from app.llm.anthropic_client import get_client
-                client = get_client()
-                patched = _build_user_prompt(final_constraints, cases, language=language) + validation.retry_prompt_addition
-                resp = await client.messages.create(
-                    model="claude-sonnet-4-6",
-                    max_tokens=4096,
-                    system=GENERATE_SYSTEM,
-                    messages=[{"role": "user", "content": patched}],
-                )
-                raw = resp.content[0].text.strip()
-                if raw.startswith("```"):
-                    raw = raw.split("```")[1]
-                    if raw.startswith("json"):
-                        raw = raw[4:]
-                data = json.loads(raw)
-                from app.schemas.solution import Material, Solution
-                solution = Solution(
-                    title=data.get("title", ""),
-                    summary=data.get("summary", ""),
-                    materials=[Material(**m) for m in data.get("materials", [])],
-                    total_cost_inr=data.get("total_cost_inr", 0),
-                    build_steps=data.get("build_steps", []),
-                    expected_outcome=data.get("expected_outcome", ""),
-                    failure_modes=data.get("failure_modes", []),
-                    maintenance=data.get("maintenance", ""),
-                    skill_check=data.get("skill_check", ""),
-                )
+        solution = await generate_solution(final_constraints, cases, conversation_history, language)
+        validation = validate(solution, final_constraints)
+
+        if not validation.passed and validation.retry_prompt_addition:
+            # One retry through the router with the validator's fix-it hint
+            solution = await generate_solution(
+                final_constraints, cases, conversation_history, language,
+                retry_hint=validation.retry_prompt_addition,
+            )
 
         for part in _split_for_whatsapp(solution, language):
             await _send_whatsapp_message(phone_number_id, sender, part)
@@ -317,6 +319,11 @@ async def _handle_message(message: dict, phone_number_id: str):
         # Clear session after successful solution
         _clear_session(sender)
 
+    except (AllProvidersExhausted, EmbeddingsExhausted):
+        lang = _get_session(sender).get("lang", "hinglish")
+        await _send_whatsapp_message(
+            phone_number_id, sender, _CAPACITY_MSG.get(lang, _CAPACITY_MSG["hinglish"])
+        )
     except Exception as e:
         logger.exception("Error handling WhatsApp message from %s", sender)
         lang = _get_session(sender).get("lang", "hinglish")

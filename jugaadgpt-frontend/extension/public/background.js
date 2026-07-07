@@ -15,10 +15,12 @@ async function pingBackend(url) {
   return response.json();
 }
 
-async function queryBackend(backendUrl, message, sessionId, lang) {
+async function queryBackend(backendUrl, message, sessionId, lang, deviceId) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (deviceId) headers['X-Device-Id'] = deviceId;
   const response = await fetch(`${(backendUrl || DEFAULT_BACKEND_URL).replace(/\/$/, '')}/api/query`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({
       session_id: sessionId || `extension-${Date.now()}`,
       message,
@@ -49,6 +51,9 @@ async function queryBackend(backendUrl, message, sessionId, lang) {
   let clarification = null;
   let lastStatus = '';
   let backendError = '';
+  let quota = null;
+  let loginRequired = false;
+  let capacityMessage = '';
 
   const parseEvents = (rawChunk) => {
     const blocks = rawChunk.split('\n\n');
@@ -64,6 +69,16 @@ async function queryBackend(backendUrl, message, sessionId, lang) {
       if (eventName === 'token') tokens += eventData;
       if (eventName === 'status') lastStatus = eventData;
       if (eventName === 'error') backendError = eventData;
+      if (eventName === 'quota') {
+        try { quota = JSON.parse(eventData); } catch { quota = null; }
+      }
+      if (eventName === 'login_required') {
+        loginRequired = true;
+        try { capacityMessage = JSON.parse(eventData).message || ''; } catch { capacityMessage = ''; }
+      }
+      if (eventName === 'quota_exhausted' || eventName === 'capacity') {
+        try { capacityMessage = JSON.parse(eventData).message || eventData; } catch { capacityMessage = eventData; }
+      }
       if (eventName === 'solution') {
         try {
           solution = JSON.parse(eventData);
@@ -96,8 +111,17 @@ async function queryBackend(backendUrl, message, sessionId, lang) {
   if (backendError) {
     throw new Error(`Backend error: ${backendError}`);
   }
+
+  const wrap = (result) => ({ result, quota, loginRequired });
+
+  if (loginRequired) {
+    return wrap(capacityMessage || 'Daily free limit reached — log in on the website to continue.');
+  }
+  if (capacityMessage) {
+    return wrap(capacityMessage);
+  }
   if (clarification?.question) {
-    return `Need one detail before I can answer properly:\n\n${clarification.question}`;
+    return wrap(`Need one detail before I can answer properly:\n\n${clarification.question}`);
   }
   if (solution?.solution) {
     const data = solution.solution;
@@ -108,17 +132,17 @@ async function queryBackend(backendUrl, message, sessionId, lang) {
     if (data.build_steps?.length) {
       lines.push(`Next step: ${data.build_steps[0]}`);
     }
-    return lines.join('\n\n');
+    return wrap(lines.join('\n\n'));
   }
-  if (tokens) return tokens;
-  if (lastStatus) return `Backend status: ${lastStatus}`;
-  return 'No response from backend.';
+  if (tokens) return wrap(tokens);
+  if (lastStatus) return wrap(`Backend status: ${lastStatus}`);
+  return wrap('No response from backend.');
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === 'JUGAADGPT_QUERY_BACKEND') {
-    queryBackend(message.backendUrl, message.payload, message.sessionId, message.lang)
-      .then((result) => sendResponse({ ok: true, result }))
+    queryBackend(message.backendUrl, message.payload, message.sessionId, message.lang, message.deviceId)
+      .then((data) => sendResponse({ ok: true, ...data }))
       .catch((error) => sendResponse({ ok: false, error: error.message || 'Unknown error' }));
     return true;
   }

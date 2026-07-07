@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import usePageTitle from '../hooks/usePageTitle';
 
 const BLUEPRINT_KEY = 'jg_blueprint';
 const BP_IMG_PREFIX = 'jg_bp_img_';
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const Blueprints = () => {
+  usePageTitle('Blueprints');
   const [bp, setBp] = useState(null);
   const [activeStep, setActiveStep] = useState(0);
   const [schematicImg, setSchematicImg] = useState(null);

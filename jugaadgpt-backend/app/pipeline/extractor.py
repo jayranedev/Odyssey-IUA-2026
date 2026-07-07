@@ -1,19 +1,18 @@
 """
 Constraint Extractor — Call 1 of 2 in the pipeline.
-Uses Haiku (cheap, fast) to parse free-text into a structured Constraints object.
-If the user includes an image, falls back to Sonnet for multimodal parsing.
+Uses the small/fast router role to parse free-text into a structured
+Constraints object. If the user includes an image, uses the vision role.
 """
 
-import json
-
-from app.llm.anthropic_client import get_client
+from app.llm import router
+from app.llm.parsing import extract_json_object
 from app.schemas.solution import Constraints
 
 EXTRACT_SYSTEM = """You are a constraint extraction engine for JugaadGPT, an AI that helps people in India solve problems with limited resources.
 
 Your job: parse the user's message into a structured JSON object. Extract every constraint mentioned. If a constraint isn't mentioned, leave it as null or empty — do NOT guess or assume.
 
-Respond ONLY with valid JSON matching this exact schema:
+Respond with ONLY a JSON object, no markdown fences, no commentary, no explanation before or after. The JSON must match this exact schema:
 {
   "problem_type": "food_preservation | water | power | tools | health | agriculture | cooling | other",
   "specific_issue": "one-line description of the specific problem",
@@ -41,55 +40,58 @@ EXTRACT_SYSTEM_VISION = EXTRACT_SYSTEM + """
 
 The user has also provided an image. Identify any materials, tools, or environmental context visible in the image and add them to available_materials."""
 
+REASK_SUFFIX = (
+    "\n\nYour previous reply was not valid JSON. Respond again with ONLY the JSON object, "
+    "starting with { and ending with }. No markdown fences, no commentary."
+)
+
+
+async def _call_extractor(system: str, content, max_tokens: int = 512) -> str:
+    role = "vision" if isinstance(content, list) else "extractor"
+    return await router.complete(
+        role=role,
+        system=system,
+        messages=[{"role": "user", "content": content}],
+        max_tokens=max_tokens,
+        json_mode=not isinstance(content, list),
+        temperature=0.1,
+    )
+
 
 async def extract_constraints(
     message: str,
     image_base64: str | None = None,
     history: str = "",
 ) -> Constraints:
-    client = get_client()
-
     # Prepend conversation history so follow-up queries have full context
     full_message = f"{history}\n\nUser's latest message: {message}" if history else message
 
     if image_base64:
-        model = "claude-sonnet-4-6"
         system = EXTRACT_SYSTEM_VISION
         content = [
             {
-                "type": "image",
-                "source": {
-                    "type": "base64",
-                    "media_type": "image/jpeg",
-                    "data": image_base64,
-                },
+                "type": "image_url",
+                "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"},
             },
             {"type": "text", "text": full_message},
         ]
     else:
-        model = "claude-haiku-4-5-20251001"
         system = EXTRACT_SYSTEM
         content = full_message
 
-    response = await client.messages.create(
-        model=model,
-        max_tokens=512,
-        system=system,
-        messages=[{"role": "user", "content": content}],
-    )
+    raw = await _call_extractor(system, content)
+    data = extract_json_object(raw)
 
-    raw = response.content[0].text.strip()
-    # Strip markdown fences if present
-    if raw.startswith("```"):
-        raw = raw.split("```")[1]
-        if raw.startswith("json"):
-            raw = raw[4:]
-    raw = raw.strip()
+    if data is None:
+        # One re-ask retry: open models sometimes reply with prose first.
+        reask = full_message + REASK_SUFFIX if isinstance(content, str) else content
+        if isinstance(reask, list):
+            reask = [*content[:-1], {"type": "text", "text": full_message + REASK_SUFFIX}]
+        raw = await _call_extractor(system, reask)
+        data = extract_json_object(raw)
 
-    try:
-        data = json.loads(raw)
-    except json.JSONDecodeError:
-        # LLM returned prose (common on vague follow-ups) — use safe defaults
+    if data is None:
+        # LLM returned prose twice (common on vague follow-ups) — use safe defaults
         data = {}
 
     # Coerce null / missing fields so Pydantic never sees unexpected types
@@ -106,4 +108,10 @@ async def extract_constraints(
         data["available_materials"] = []
     if not isinstance(data.get("missing_constraints"), list):
         data["missing_constraints"] = []
+    if not isinstance(data.get("budget_inr"), (int, float)):
+        data["budget_inr"] = None
+    if not isinstance(data.get("timeline_days"), (int, float)):
+        data["timeline_days"] = None
+    if not isinstance(data.get("daily_volume_kg"), (int, float)):
+        data["daily_volume_kg"] = None
     return Constraints(**data)

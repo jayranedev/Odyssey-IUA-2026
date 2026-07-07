@@ -21,10 +21,10 @@ import * as FileSystem from 'expo-file-system';
 // SCREEN_WIDTH available if needed for responsive sizing
 
 // ── API config ────────────────────────────────────────────────
-// ── API URL — use your ngrok URL if backend is already tunnelled for WhatsApp ──
-// ngrok URL looks like: https://xxxx-xx-xx-xx-xx.ngrok-free.app
-// Or for LAN: ipconfig → Mobile Hotspot IPv4, run backend with --host 0.0.0.0
-const API_BASE = 'https://erratically-shakeable-merlyn.ngrok-free.dev';
+// API base URL comes from app.json → expo.extra.apiBaseUrl
+// (for LAN dev: ipconfig → Mobile Hotspot IPv4, run backend with --host 0.0.0.0)
+import { API_BASE, authHeaders, getDeviceId } from './api';
+import { authEnabled, restoreSession, sendOtp, verifyOtp } from './auth';
 
 function genId() {
   return `mobile_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -105,11 +105,11 @@ function SpeakButton({ text, lang }) {
     setState('loading');
     try {
       const cleaned = text.replace(/\*+/g, '').replace(/#{1,6}\s*/g, '').replace(/\n+/g, ' ').trim().slice(0, 1000);
-      const sarvamLang = lang === 'english' ? 'en-IN' : 'hi-IN';
+      const ttsLang = lang === 'english' ? 'en-IN' : 'hi-IN';
       const resp = await fetch(`${API_BASE}/api/tts-b64`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '1' },
-        body: JSON.stringify({ text: cleaned, lang: sarvamLang }),
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ text: cleaned, lang: ttsLang }),
       });
       const { audio_base64 } = await resp.json();
       if (!audio_base64) { setState('idle'); return; }
@@ -317,7 +317,7 @@ function BlueprintsScreen({ blueprint }) {
       try {
         const r = await fetch(
           `${API_BASE}/api/blueprint-image?title=${encodeURIComponent(blueprint.title)}`,
-          { headers: { 'ngrok-skip-browser-warning': '1' } }
+          { headers: authHeaders() }
         );
         const { image_base64 } = await r.json();
         if (image_base64 && !cancelled) {
@@ -330,7 +330,7 @@ function BlueprintsScreen({ blueprint }) {
       try {
         const r = await fetch(`${API_BASE}/api/generate-image`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '1' },
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({ prompt: `Technical blueprint schematic: ${blueprint.title}. Engineering assembly diagram, hand-drawn, blueprint paper style, no text` }),
         });
         const { base64 } = await r.json();
@@ -338,7 +338,7 @@ function BlueprintsScreen({ blueprint }) {
           setBpImage(`data:image/png;base64,${base64}`);
           fetch(`${API_BASE}/api/blueprint-image`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '1' },
+            headers: authHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify({ title: blueprint.title, image_base64: base64 }),
           }).catch(() => {});
         }
@@ -503,7 +503,7 @@ function ArchiveScreen({ onSelectCard }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/archive`, { headers: { 'ngrok-skip-browser-warning': '1' } })
+    fetch(`${API_BASE}/api/archive`, { headers: authHeaders() })
       .then(r => r.json())
       .then(data => { setCards(data); setLoading(false); })
       .catch(() => setLoading(false));
@@ -562,6 +562,7 @@ function AIHub({ visible, onClose, onSolution, budget, scannedImage, scannedImag
   const [savedMsgIds, setSavedMsgIds] = useState(new Set());
   const [isRecording, setIsRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
   const [sessionId, setSessionId] = useState(() => genId());
   const scrollRef = useRef();
   const xhrRef = useRef(null);
@@ -572,7 +573,7 @@ function AIHub({ visible, onClose, onSolution, budget, scannedImage, scannedImag
 
   // Fire-and-forget: upsert session then append a message to DB
   const persistMessage = useCallback((role, type, content) => {
-    const headers = { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '1' };
+    const headers = authHeaders({ 'Content-Type': 'application/json' });
     fetch(`${API_BASE}/api/sessions`, {
       method: 'POST', headers,
       body: JSON.stringify({ id: sessionId, title: sessionTitleRef.current, lang: langRef.current }),
@@ -633,6 +634,19 @@ function AIHub({ visible, onClose, onSolution, budget, scannedImage, scannedImag
           onSolution(sol);
           persistMessage('assistant', 'solution', sol);
         } catch { /* skip malformed */ }
+      } else if (eventType === 'login_required') {
+        state.tokenMsgId = null; state.tokenAccum = '';
+        setIsTyping(false);
+        let text = 'Aaj ke free jugaad khatam! Log in karke 25/day paayein.';
+        try { text = JSON.parse(dataLine).message || text; } catch { /* keep default */ }
+        setMessages(prev => [...prev, { id: `lim_${Date.now()}`, type: 'assistant', text }]);
+        if (authEnabled) setShowLogin(true);
+      } else if (eventType === 'quota_exhausted' || eventType === 'capacity') {
+        state.tokenMsgId = null; state.tokenAccum = '';
+        setIsTyping(false);
+        let text = 'Aaj ki capacity full ho gayi. Raat 12 baje UTC ke baad try karein.';
+        try { text = JSON.parse(dataLine).message || text; } catch { /* keep default */ }
+        setMessages(prev => [...prev, { id: `cap_${Date.now()}`, type: 'assistant', text }]);
       } else if (eventType === 'error') {
         state.tokenMsgId = null; state.tokenAccum = '';
         setIsTyping(false);
@@ -656,7 +670,7 @@ function AIHub({ visible, onClose, onSolution, budget, scannedImage, scannedImag
           formData.append('audio', { uri, type: 'audio/m4a', name: 'voice.m4a' });
           const resp = await fetch(`${API_BASE}/api/transcribe`, {
             method: 'POST',
-            headers: { 'ngrok-skip-browser-warning': '1' },
+            headers: authHeaders(),
             body: formData,
           });
           const data = await resp.json();
@@ -711,8 +725,8 @@ function AIHub({ visible, onClose, onSolution, budget, scannedImage, scannedImag
     const xhr = new XMLHttpRequest();
     xhrRef.current = xhr;
     xhr.open('POST', `${API_BASE}/api/query`);
-    xhr.setRequestHeader('Content-Type', 'application/json');
-    xhr.setRequestHeader('ngrok-skip-browser-warning', '1');
+    const queryHeaders = authHeaders({ 'Content-Type': 'application/json' });
+    Object.entries(queryHeaders).forEach(([k, v]) => xhr.setRequestHeader(k, v));
     xhr.timeout = 60000; // 60s — prevents infinite spinner on network failure
 
     xhr.onprogress = () => {
@@ -848,6 +862,91 @@ function AIHub({ visible, onClose, onSolution, budget, scannedImage, scannedImag
           </View>
         </View>
       </View>
+
+      {showLogin && <LoginSheet onClose={() => setShowLogin(false)} />}
+    </View>
+  );
+}
+
+// ─── LOGIN SHEET (email OTP via Supabase) ────────────────────
+
+function LoginSheet({ onClose }) {
+  const [step, setStep] = useState('email'); // email | code
+  const [email, setEmail] = useState('');
+  const [code, setCode] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSend = async () => {
+    if (!email.trim()) return;
+    setBusy(true); setError('');
+    const { error: err } = await sendOtp(email.trim());
+    setBusy(false);
+    if (err) { setError(err.message); return; }
+    setStep('code');
+  };
+
+  const handleVerify = async () => {
+    if (!code.trim()) return;
+    setBusy(true); setError('');
+    const { error: err } = await verifyOtp(email.trim(), code.trim());
+    setBusy(false);
+    if (err) { setError(err.message); return; }
+    onClose();
+  };
+
+  return (
+    <View style={[styles.aiOverlay, { backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 200 }]}>
+      <SafeAreaView style={{ flex: 1, justifyContent: 'flex-end' }}>
+        <View style={{ backgroundColor: palette.paper, borderTopWidth: 3, borderColor: palette.ink, padding: 20 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+            <Text style={{ flex: 1, fontSize: 18, fontWeight: '900', color: palette.ink }}>LOG IN TO JUGAADGPT</Text>
+            <Pressable onPress={onClose}><Ico name="close" size={26} /></Pressable>
+          </View>
+          <Text style={{ fontSize: 13, color: palette.mute, marginBottom: 14 }}>
+            25 jugaads/day + chats saved to your account. Hum email par 6-digit code bhejenge.
+          </Text>
+          {step === 'email' ? (
+            <>
+              <TextInput
+                style={{ borderWidth: 2, borderColor: palette.ink, backgroundColor: palette.white, padding: 10, fontSize: 15, marginBottom: 10 }}
+                placeholder="you@example.com"
+                placeholderTextColor={palette.mute}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                value={email}
+                onChangeText={setEmail}
+              />
+              <Pressable
+                onPress={handleSend}
+                disabled={busy}
+                style={{ backgroundColor: palette.yellow, borderWidth: 2, borderColor: palette.ink, padding: 12, alignItems: 'center', opacity: busy ? 0.5 : 1 }}
+              >
+                <Text style={{ fontWeight: '900', color: palette.ink }}>{busy ? 'BHEJ RAHE HAIN…' : 'EMAIL ME A CODE'}</Text>
+              </Pressable>
+            </>
+          ) : (
+            <>
+              <TextInput
+                style={{ borderWidth: 2, borderColor: palette.ink, backgroundColor: palette.white, padding: 10, fontSize: 20, letterSpacing: 6, textAlign: 'center', marginBottom: 10 }}
+                placeholder="123456"
+                placeholderTextColor={palette.mute}
+                keyboardType="number-pad"
+                value={code}
+                onChangeText={setCode}
+              />
+              <Pressable
+                onPress={handleVerify}
+                disabled={busy}
+                style={{ backgroundColor: palette.yellow, borderWidth: 2, borderColor: palette.ink, padding: 12, alignItems: 'center', opacity: busy ? 0.5 : 1 }}
+              >
+                <Text style={{ fontWeight: '900', color: palette.ink }}>{busy ? 'CHECKING…' : 'VERIFY & LOG IN'}</Text>
+              </Pressable>
+            </>
+          )}
+          {!!error && <Text style={{ color: palette.brick, fontSize: 12, marginTop: 8 }}>{error}</Text>}
+        </View>
+      </SafeAreaView>
     </View>
   );
 }
@@ -894,7 +993,7 @@ function HistoryModal({ onClose }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/sessions`, { headers: { 'ngrok-skip-browser-warning': '1' } })
+    fetch(`${API_BASE}/api/sessions`, { headers: authHeaders() })
       .then(r => r.json())
       .then(data => { setSessions(Array.isArray(data) ? data : []); setLoading(false); })
       .catch(() => setLoading(false));
@@ -944,6 +1043,13 @@ export default function JugaadMobileApp() {
   const [showHistory, setShowHistory] = useState(false);
   const [toast, setToast] = useState('');
 
+  // Boot: ensure a stable device id (quota identity) and restore any
+  // Supabase session so the auth token is attached to API calls.
+  useEffect(() => {
+    getDeviceId().catch(() => {});
+    restoreSession().catch(() => {});
+  }, []);
+
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 2500); };
 
   const openCamera = async () => {
@@ -983,7 +1089,7 @@ export default function JugaadMobileApp() {
       };
       const res = await fetch(`${API_BASE}/api/archive`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '1' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(card),
       });
       showToast(res.ok ? 'Saved to archive ✓' : 'Save failed');

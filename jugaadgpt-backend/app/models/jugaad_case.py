@@ -5,6 +5,7 @@ from pgvector.sqlalchemy import Vector
 from sqlalchemy import DateTime, Float, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.config import settings
 from app.db import Base
 
 
@@ -25,5 +26,5 @@ class JugaadCase(Base):
     skill_level: Mapped[str] = mapped_column(String(50), default="basic")
     source_url: Mapped[str] = mapped_column(String(500), default="")
     failure_modes: Mapped[str] = mapped_column(Text, default="")
-    embedding: Mapped[list[float]] = mapped_column(Vector(1024), nullable=True)
+    embedding: Mapped[list[float]] = mapped_column(Vector(settings.embedding_dim), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

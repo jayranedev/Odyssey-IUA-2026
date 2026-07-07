@@ -1,12 +1,12 @@
 import base64
-import json
 
-import anthropic
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
-router = APIRouter(prefix="/vision", tags=["vision"])
+from app.llm import router as llm_router
+from app.llm.parsing import extract_json_array
+from app.llm.router import AllProvidersExhausted
 
-_client = anthropic.Anthropic()
+router = APIRouter(prefix="/vision", tags=["vision"])
 
 ALLOWED_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp"}
 
@@ -19,34 +19,32 @@ async def detect_materials(file: UploadFile = File(...)):
     data = await file.read()
     b64 = base64.b64encode(data).decode()
 
-    msg = _client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=256,
-        messages=[{
-            "role": "user",
-            "content": [
-                {
-                    "type": "image",
-                    "source": {"type": "base64", "media_type": file.content_type, "data": b64},
-                },
-                {
-                    "type": "text",
-                    "text": (
-                        "Look at this image and list every distinct material, scrap, tool, or component visible. "
-                        "Return ONLY a JSON array of short strings (in English), nothing else. "
-                        'Example: ["old cycle rim", "PVC pipe 2m", "rubber tube", "metal sheet"]'
-                    ),
-                },
-            ],
-        }],
-    )
-
-    text = msg.content[0].text.strip()
     try:
-        start, end = text.index("["), text.rindex("]") + 1
-        items = json.loads(text[start:end])
-        items = [str(i) for i in items if i]
-    except Exception:
-        items = []
+        text = await llm_router.complete(
+            role="vision",
+            system="",
+            messages=[{
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:{file.content_type};base64,{b64}"},
+                    },
+                    {
+                        "type": "text",
+                        "text": (
+                            "Look at this image and list every distinct material, scrap, tool, or component visible. "
+                            "Return ONLY a JSON array of short strings (in English), nothing else. "
+                            'Example: ["old cycle rim", "PVC pipe 2m", "rubber tube", "metal sheet"]'
+                        ),
+                    },
+                ],
+            }],
+            max_tokens=256,
+            temperature=0.1,
+        )
+    except AllProvidersExhausted:
+        return {"materials": []}
 
-    return {"materials": items}
+    items = extract_json_array(text) or []
+    return {"materials": [str(i) for i in items if i]}

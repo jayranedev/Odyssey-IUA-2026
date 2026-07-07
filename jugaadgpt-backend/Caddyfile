@@ -1,0 +1,12 @@
+# Automatic HTTPS reverse proxy for the API.
+# DOMAIN comes from the environment (docker-compose.prod.yml).
+# Use "localhost" for local testing (self-signed cert).
+
+{$DOMAIN} {
+	encode gzip
+
+	# SSE-friendly proxying
+	reverse_proxy api:8000 {
+		flush_interval -1
+	}
+}

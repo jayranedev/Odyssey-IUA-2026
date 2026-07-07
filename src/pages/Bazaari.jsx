@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import usePageTitle from '../hooks/usePageTitle';
 
 const BAZAARI_KEY = 'jg_bazaari';
 
@@ -47,6 +48,7 @@ function generateBillNo() {
 }
 
 const Bazaari = () => {
+  usePageTitle('Bazaari');
   const [data, setData] = useState(null);
   const [billNo] = useState(generateBillNo);
 
