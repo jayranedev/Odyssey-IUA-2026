@@ -1,14 +1,14 @@
 # Free-tier keep-alive.
 #
-# - Every 10 minutes: GET $KEEPALIVE_API_URL/health so the Koyeb free instance
+# - Every 10 minutes: GET $KEEPALIVE_API_URL/health so the Render free service
 #   never idles out.
 # - Daily: GET $KEEPALIVE_API_URL/health/db (runs SELECT 1 on Postgres) so the
 #   Supabase free-tier project is never paused for inactivity.
 #
 # ⚠️ AFTER PUSHING, YOU MUST:
 #   1. Enable GitHub Actions for the repo (Settings → Actions → Allow).
-#   2. Add repo secret KEEPALIVE_API_URL = https://<your-app>.koyeb.app
-#      (no trailing slash).
+#   2. Add repo secret KEEPALIVE_API_URL = https://odyssey-iua-2026-1.onrender.com
+#      (no trailing slash), or your actual Render service URL.
 # Scheduled workflows on free GitHub are best-effort (may lag a few minutes)
 # and are auto-disabled after 60 days without repo activity — a monthly commit
 # or a UptimeRobot monitor keeps them alive.

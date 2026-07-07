@@ -1,5 +1,5 @@
 export const site = {
-  siteUrl: process.env.NEXT_PUBLIC_SITE_URL || 'https://jugaadgpt.example.com',
+  siteUrl: process.env.NEXT_PUBLIC_SITE_URL || 'https://jugaadgpt-web.vercel.app',
   appUrl: process.env.NEXT_PUBLIC_APP_URL || 'https://jugaadgpt-web.vercel.app',
   apkUrl:
     process.env.NEXT_PUBLIC_APK_URL ||
