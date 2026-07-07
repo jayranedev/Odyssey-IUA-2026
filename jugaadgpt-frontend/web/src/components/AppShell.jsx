@@ -1,3 +1,4 @@
+'use client';
 import {
   IconTools, IconCompass, IconStorefront, IconArchive, IconGear,
   IconCamera, IconX, IconPlus, IconArrowRight, IconSparkle, IconListCheck,
