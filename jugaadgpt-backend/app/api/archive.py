@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth import AuthUser, get_current_user_optional
 from app.db import AsyncSessionLocal, get_db
 from app.models.archive_card import ArchiveCard
 
@@ -100,10 +101,21 @@ async def create_card(
 
 
 @router.get("")
-async def list_cards(session_id: str | None = None, db: AsyncSession = Depends(get_db)):
+async def list_cards(
+    session_id: str | None = None, 
+    user: AuthUser | None = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db)
+):
     q = select(ArchiveCard).order_by(ArchiveCard.created_at.desc())
-    if session_id:
+    if user and user.user_id:
+        from app.models.chat_session import ChatSession
+        q = q.join(ChatSession, ArchiveCard.session_id == ChatSession.id)
+        q = q.where(ChatSession.user_id == user.user_id)
+    elif session_id:
         q = q.where(ArchiveCard.session_id == session_id)
+    else:
+        return []
+    
     result = await db.execute(q)
     return result.scalars().all()
 
