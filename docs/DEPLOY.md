@@ -10,7 +10,7 @@ The self-hosted Oracle/docker-compose path is kept as **Appendix A**.
 | Postgres + pgvector + Auth | Supabase free tier | ₹0 |
 | Redis (quotas, exhaustion flags) | Upstash free tier | ₹0 |
 | Root web app (Vite) | Vercel | ₹0 |
-| Landing page (`landing/`) | Vercel (second project) | ₹0 |
+| Landing page (`landing/`) | Next.js on Vercel (second project) | ₹0 |
 | Keep-alive + backups + CI | GitHub Actions | ₹0 |
 
 Order matters: **Supabase → Upstash → Render → migrations from your machine → Vercel.**
@@ -121,11 +121,9 @@ curl -N -X POST https://<app>.render.com/api/query \
   ```
 
 **Project 2: landing**
-- Same repo, **Root Directory = `landing`**, Framework preset "Other", no build
-  command, output directory `.` (static). `landing/vercel.json` handles clean URLs.
-- Before/after deploy: fill the two **EDIT ME** blocks in `landing/index.html`
-  (canonical/OG URLs + `JUGAAD_CONFIG`), update `landing/robots.txt` +
-  `landing/sitemap.xml`, replace team photos + `landing/team.js`.
+- Same repo, **Root Directory = `landing`**, Framework preset **Next.js**.
+- Build command: `npm run build`; output is handled automatically by Next.js on Vercel.
+- Update the site config in `landing/lib/site.js`, the public metadata files in `landing/public/`, and the team photos in `landing/public/assets/team/`.
 
 Add your custom domains in each Vercel project if you have one, then add all
 final origins to the backend `CORS_ORIGINS` on Render.

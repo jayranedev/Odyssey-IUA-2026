@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Replace jugaadgpt.example.com / app.jugaadgpt.example.com with your real domains before deploying. -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://jugaadgpt.example.com/</loc>
