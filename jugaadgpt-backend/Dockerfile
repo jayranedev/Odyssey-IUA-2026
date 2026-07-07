@@ -46,7 +46,7 @@ EXPOSE 8000
 
 # gunicorn + uvicorn workers. PORT is injected by Koyeb; WEB_CONCURRENCY=1
 # fits the 512MB free instance (SSE + edge-tts are fully async, one worker is fine).
-CMD gunicorn app.main:app \
+CMD alembic upgrade head && gunicorn app.main:app \
     -k uvicorn.workers.UvicornWorker \
     -w ${WEB_CONCURRENCY:-1} \
     -b 0.0.0.0:${PORT:-8000} \
