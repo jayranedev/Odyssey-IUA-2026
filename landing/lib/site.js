@@ -1,6 +1,6 @@
 export const site = {
   siteUrl: process.env.NEXT_PUBLIC_SITE_URL || 'https://jugaadgpt.example.com',
-  appUrl: process.env.NEXT_PUBLIC_APP_URL || 'https://app.jugaadgpt.example.com',
+  appUrl: process.env.NEXT_PUBLIC_APP_URL || 'https://jugaadgpt-web.vercel.app',
   apkUrl:
     process.env.NEXT_PUBLIC_APK_URL ||
     'https://github.com/jayranedev/Odyssey-IUA-2026/releases/latest',
