@@ -65,7 +65,13 @@ export function AuthProvider({ children }) {
 
   const sendOtp = useCallback(async (email) => {
     if (!authEnabled) return { error: { message: 'Auth not configured' } };
-    return supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
+    return supabase.auth.signInWithOtp({ 
+      email, 
+      options: { 
+        shouldCreateUser: true,
+        emailRedirectTo: window.location.origin
+      } 
+    });
   }, []);
 
   const verifyOtp = useCallback(async (email, token) => {

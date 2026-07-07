@@ -98,40 +98,22 @@ const LoginModal = () => {
               onClick={handleSendOtp}
               disabled={busy}
             >
-              <Mail size={14} /> {busy ? 'Sending…' : 'Email me a code'}
+              <Mail size={14} /> {busy ? 'Sending…' : 'Send magic link'}
             </button>
           </>
         )}
 
         {authEnabled && step === 'code' && (
           <>
-            <p style={{ fontSize: 13, color: 'var(--jg2-graphite)', marginBottom: 10 }}>
-              We sent a 6-digit code to <strong>{email}</strong>. Enter it below.
+            <p style={{ fontSize: 13, color: 'var(--jg2-graphite)', marginBottom: 10, lineHeight: 1.5 }}>
+              We sent a secure magic link to <strong>{email}</strong>. 
+              Check your inbox and click the link to log in!
             </p>
-            <input
-              type="text"
-              inputMode="numeric"
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleVerify()}
-              placeholder="123456"
-              style={{
-                width: '100%', boxSizing: 'border-box', padding: '9px 12px',
-                border: '1.5px solid var(--jg2-ink)', fontSize: 18, letterSpacing: '0.3em',
-                textAlign: 'center', marginBottom: 10, fontFamily: 'JetBrains Mono, monospace',
-                background: 'var(--jg2-paper)',
-              }}
-            />
+            <div style={{ padding: 12, background: 'var(--jg2-kraft-light)', borderRadius: 6, fontSize: 12, color: 'var(--jg2-ink)', marginBottom: 10, lineHeight: 1.5, fontFamily: 'JetBrains Mono, monospace' }}>
+              You can close this window. The magic link will automatically log you in.
+            </div>
             <button
-              className="jg2-btn-yellow"
-              style={{ width: '100%' }}
-              onClick={handleVerify}
-              disabled={busy}
-            >
-              {busy ? 'Checking…' : 'Verify & log in'}
-            </button>
-            <button
-              onClick={() => { setStep('start'); setCode(''); }}
+              onClick={() => { setStep('start'); }}
               style={{
                 background: 'none', border: 'none', cursor: 'pointer', marginTop: 10,
                 fontSize: 12, color: 'var(--jg2-graphite)', textDecoration: 'underline',
