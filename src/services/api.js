@@ -1,7 +1,7 @@
 // Shared fetch wrapper: attaches X-Device-Id + Authorization on every API call,
 // and broadcasts quota SSE events so the pill in the header stays live.
 
-export const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+export const API_BASE = import.meta.env.VITE_API_URL || 'https://odyssey-iua-2026-1.onrender.com';
 
 const DEVICE_KEY = 'jg_device_id';
 
