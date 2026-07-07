@@ -58,7 +58,7 @@ class Settings(BaseSettings):
     keepalive_timeout_seconds: int = 10
 
     environment: str = "development"
-    cors_origins: str = "http://localhost:3000,http://localhost:5173,https://jugaadgpt-web.vercel.app"
+    cors_origins: str = "http://localhost:3000,http://localhost:5173,https://jugaadgpt-web.vercel.app,https://jugaadgpt.vercel.app"
 
     @property
     def cors_origins_list(self) -> list[str]:
