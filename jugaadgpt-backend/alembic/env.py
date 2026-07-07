@@ -8,7 +8,7 @@ from app.db import Base
 import app.models  # noqa: F401 — ensures all models are registered
 
 config = context.config
-config.set_main_option("sqlalchemy.url", settings.database_url_sync)
+config.set_main_option("sqlalchemy.url", settings.database_url_sync.replace("%", "%%"))
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
