@@ -35,7 +35,7 @@ router = APIRouter(tags=["sessions"])
 
 class SessionUpsert(BaseModel):
     id: str
-    title: str = "New Chat"
+    title: str | None = None
     lang: str = "hinglish"
 
 
@@ -102,7 +102,8 @@ async def upsert_session(
     if session:
         if not _can_access(session, user, device_id):
             raise HTTPException(403, "Not your session")
-        session.title = body.title
+        if body.title is not None:
+            session.title = body.title
         session.lang = body.lang
         session.updated_at = datetime.utcnow()
         # Bind an anonymous session to the user on their first authed touch
@@ -113,7 +114,7 @@ async def upsert_session(
     else:
         session = ChatSession(
             id=body.id,
-            title=body.title,
+            title=body.title or "New Chat",
             lang=body.lang,
             user_id=user.id if user else None,
             device_id=device_id or None,

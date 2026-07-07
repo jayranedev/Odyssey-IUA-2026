@@ -360,9 +360,12 @@ const SessionsDrawer = ({ open, onClose, currentId, onSwitch }) => {
 // Fire-and-forget mirror of session + message to the backend
 function mirrorToBackend(sessionId, title, lang, role, type, content) {
   const headers = authHeaders({ 'Content-Type': 'application/json' });
+  const payload = { id: sessionId, lang };
+  if (title) payload.title = title.slice(0, 60);
+
   fetch(`${API_BASE}/api/sessions`, {
     method: 'POST', headers,
-    body: JSON.stringify({ id: sessionId, title: (title || 'New Chat').slice(0, 60), lang }),
+    body: JSON.stringify(payload),
   }).then(() => fetch(`${API_BASE}/api/sessions/${sessionId}/messages`, {
     method: 'POST', headers,
     body: JSON.stringify({ role, type, content_json: JSON.stringify(content) }),
@@ -537,7 +540,7 @@ export const ChatScreen = () => {
               pushMsg({ type: 'solution', solution: parsed.solution, warnings: parsed.warnings });
             }
             pendingContext.current = [];
-            mirrorToBackend(sessionId, null, voiceLang, 'assistant', 'solution', parsed.solution);
+            mirrorToBackend(sessionId, parsed.solution?.title, voiceLang, 'assistant', 'solution', parsed.solution);
           } else if (eventType === 'error') {
             pushMsg({ type: 'error', text: dataLine });
             pendingContext.current = [];
