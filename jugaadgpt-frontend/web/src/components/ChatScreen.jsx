@@ -428,10 +428,16 @@ export const ChatScreen = () => {
           if (res.ok) {
             const data = await res.json();
             if (data.messages && data.messages.length > 0) {
-              const formatted = data.messages.map(m => ({
-                id: m.id, type: m.type, text: m.type === 'user' ? JSON.parse(m.content_json) : null,
-                solution: m.type === 'solution' ? JSON.parse(m.content_json) : null
-              }));
+              const formatted = data.messages.map(m => {
+                const uiType = (m.role === 'user' && m.type === 'text') ? 'user' : m.type;
+                return {
+                  id: m.id,
+                  type: uiType,
+                  text: uiType === 'user' ? JSON.parse(m.content_json) : null,
+                  solution: m.type === 'solution' ? JSON.parse(m.content_json) : null,
+                  question: m.type === 'clarification' ? JSON.parse(m.content_json) : null
+                };
+              });
               setMessages(formatted);
               localStorage.setItem(`jg_msgs_${sessionId}`, JSON.stringify(formatted));
               return;
