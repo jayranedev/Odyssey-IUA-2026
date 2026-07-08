@@ -30,9 +30,21 @@ def _decode_token(token: str) -> AuthUser | None:
     if not settings.supabase_jwt_secret:
         return None
     try:
+        secret = settings.supabase_jwt_secret
+        if "-" not in secret and "_" not in secret and (secret.endswith("=") or len(secret) % 4 == 0):
+            try:
+                import base64
+                # Some Supabase secrets are base64 encoded
+                decoded = base64.b64decode(secret)
+                # Verify it decodes cleanly (won't if it's just a random string that happens to be len%4=0)
+                if base64.b64encode(decoded).decode('utf-8') == secret:
+                    secret = decoded
+            except Exception:
+                pass
+
         payload = jwt.decode(
             token,
-            settings.supabase_jwt_secret,
+            secret,
             algorithms=["HS256"],
             audience="authenticated",
         )
