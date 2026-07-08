@@ -6,6 +6,8 @@ authenticated request.
 """
 
 import logging
+import urllib.request
+import json
 
 from fastapi import HTTPException, Request
 from jose import JWTError, jwt
@@ -17,6 +19,23 @@ logger = logging.getLogger(__name__)
 # Cache of user ids already upserted this process — avoids a DB roundtrip per request.
 _known_users: set[str] = set()
 
+# Cache of JWKS for verifying asymmetric JWTs (ES256, RS256)
+_jwks_cache: dict | None = None
+
+def _get_jwks():
+    global _jwks_cache
+    if _jwks_cache is not None:
+        return _jwks_cache
+    try:
+        jwks_url = f"{settings.supabase_url.rstrip('/')}/auth/v1/.well-known/jwks.json"
+        req = urllib.request.Request(jwks_url)
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            _jwks_cache = json.loads(resp.read().decode())
+        return _jwks_cache
+    except Exception as e:
+        logger.error("Failed to fetch JWKS: %s", e)
+        return None
+
 
 class AuthUser:
     __slots__ = ("id", "email")
@@ -27,33 +46,54 @@ class AuthUser:
 
 
 def _decode_token(token: str) -> AuthUser | tuple[None, str]:
-    if not settings.supabase_jwt_secret:
-        return None, "No secret configured"
+    if not settings.supabase_jwt_secret and not settings.supabase_url:
+        return None, "No auth configuration"
+        
     try:
-        secret = settings.supabase_jwt_secret.strip()
-        if "-" not in secret and "_" not in secret and (secret.endswith("=") or len(secret) % 4 == 0):
-            try:
-                import base64
-                decoded = base64.b64decode(secret)
-                if base64.b64encode(decoded).decode('utf-8') == secret:
-                    secret = decoded
-            except Exception:
-                pass
+        unverified_header = jwt.get_unverified_header(token)
+        alg = unverified_header.get("alg", "unknown")
+        kid = unverified_header.get("kid")
+    except Exception:
+        return None, "Unreadable JWT header"
 
-        try:
-            unverified_header = jwt.get_unverified_header(token)
-            alg = unverified_header.get("alg", "unknown")
-        except Exception:
-            alg = "unreadable"
+    try:
+        if alg in ("ES256", "RS256"):
+            jwks = _get_jwks()
+            if not jwks:
+                return None, "Failed to load public keys (JWKS)"
+            
+            # Find the correct public key
+            key = next((k for k in jwks.get("keys", []) if k.get("kid") == kid), None)
+            if not key:
+                # Cache might be stale, but we only refresh on restart for now
+                return None, f"Key ID {kid} not found in JWKS"
+                
+            payload = jwt.decode(
+                token,
+                key,
+                algorithms=["ES256", "RS256"],
+                audience="authenticated",
+            )
+        else:
+            # Fallback to symmetric key (HS256)
+            secret = settings.supabase_jwt_secret.strip()
+            if "-" not in secret and "_" not in secret and (secret.endswith("=") or len(secret) % 4 == 0):
+                try:
+                    import base64
+                    decoded = base64.b64decode(secret)
+                    if base64.b64encode(decoded).decode('utf-8') == secret:
+                        secret = decoded
+                except Exception:
+                    pass
 
-        payload = jwt.decode(
-            token,
-            secret,
-            algorithms=["HS256", "HS384", "HS512"],
-            audience="authenticated",
-        )
+            payload = jwt.decode(
+                token,
+                secret,
+                algorithms=["HS256", "HS384", "HS512"],
+                audience="authenticated",
+            )
     except JWTError as e:
-        logger.error("JWT rejected: %s (Secret length: %d, Alg: %s)", e, len(secret) if secret else 0, alg)
+        logger.error("JWT rejected: %s (Alg: %s)", e, alg)
         return None, f"JWT Error ({alg}): {str(e)}"
     except Exception as e:
         logger.error("Unexpected error in JWT decoding: %s", e)
