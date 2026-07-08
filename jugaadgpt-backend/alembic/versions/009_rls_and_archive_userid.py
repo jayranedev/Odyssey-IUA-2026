@@ -58,6 +58,7 @@ def upgrade() -> None:
 
     # -- users: read/update own row only
     op.execute("""
+        DROP POLICY IF EXISTS users_own_access ON users;
         CREATE POLICY users_own_access ON users
         FOR ALL USING (auth.uid()::text = id)
         WITH CHECK (auth.uid()::text = id)
@@ -66,6 +67,7 @@ def upgrade() -> None:
     # -- chat_sessions: owner access by user_id; device_id sessions are
     #    handled by the backend (anonymous users don't use Supabase client)
     op.execute("""
+        DROP POLICY IF EXISTS sessions_owner_access ON chat_sessions;
         CREATE POLICY sessions_owner_access ON chat_sessions
         FOR ALL USING (auth.uid()::text = user_id)
         WITH CHECK (auth.uid()::text = user_id)
@@ -73,6 +75,7 @@ def upgrade() -> None:
 
     # -- chat_messages: access via session ownership
     op.execute("""
+        DROP POLICY IF EXISTS messages_via_session ON chat_messages;
         CREATE POLICY messages_via_session ON chat_messages
         FOR ALL USING (
             session_id IN (SELECT id FROM chat_sessions WHERE user_id = auth.uid()::text)
@@ -84,6 +87,7 @@ def upgrade() -> None:
 
     # -- archive_cards: owner access by user_id
     op.execute("""
+        DROP POLICY IF EXISTS archive_owner_access ON archive_cards;
         CREATE POLICY archive_owner_access ON archive_cards
         FOR ALL USING (auth.uid()::text = user_id)
         WITH CHECK (auth.uid()::text = user_id)
@@ -91,6 +95,7 @@ def upgrade() -> None:
 
     # -- blueprints: access via session ownership
     op.execute("""
+        DROP POLICY IF EXISTS blueprints_via_session ON blueprints;
         CREATE POLICY blueprints_via_session ON blueprints
         FOR ALL USING (
             session_id IN (SELECT id FROM chat_sessions WHERE user_id = auth.uid()::text)
@@ -102,6 +107,7 @@ def upgrade() -> None:
 
     # -- query_logs: owner access
     op.execute("""
+        DROP POLICY IF EXISTS query_logs_owner ON query_logs;
         CREATE POLICY query_logs_owner ON query_logs
         FOR ALL USING (auth.uid()::text = user_id)
         WITH CHECK (auth.uid()::text = user_id)
@@ -109,6 +115,7 @@ def upgrade() -> None:
 
     # -- feedback: owner access
     op.execute("""
+        DROP POLICY IF EXISTS feedback_owner ON feedback;
         CREATE POLICY feedback_owner ON feedback
         FOR ALL USING (auth.uid()::text = user_id)
         WITH CHECK (auth.uid()::text = user_id)
@@ -116,12 +123,14 @@ def upgrade() -> None:
 
     # -- jugaad_cases: public read (reference data)
     op.execute("""
+        DROP POLICY IF EXISTS jugaad_cases_public_read ON jugaad_cases;
         CREATE POLICY jugaad_cases_public_read ON jugaad_cases
         FOR SELECT USING (true)
     """)
 
     # -- blueprint_images: public read/write (shared cache, no user-scoping)
     op.execute("""
+        DROP POLICY IF EXISTS blueprint_images_public ON blueprint_images;
         CREATE POLICY blueprint_images_public ON blueprint_images
         FOR ALL USING (true)
         WITH CHECK (true)
