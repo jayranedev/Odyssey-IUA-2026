@@ -40,6 +40,12 @@ def _decode_token(token: str) -> AuthUser | tuple[None, str]:
             except Exception:
                 pass
 
+        try:
+            unverified_header = jwt.get_unverified_header(token)
+            alg = unverified_header.get("alg", "unknown")
+        except Exception:
+            alg = "unreadable"
+
         payload = jwt.decode(
             token,
             secret,
@@ -47,8 +53,8 @@ def _decode_token(token: str) -> AuthUser | tuple[None, str]:
             audience="authenticated",
         )
     except JWTError as e:
-        logger.error("JWT rejected: %s (Secret length: %d)", e, len(secret) if secret else 0)
-        return None, f"JWT Error: {str(e)}"
+        logger.error("JWT rejected: %s (Secret length: %d, Alg: %s)", e, len(secret) if secret else 0, alg)
+        return None, f"JWT Error ({alg}): {str(e)}"
     except Exception as e:
         logger.error("Unexpected error in JWT decoding: %s", e)
         return None, f"Unexpected error: {str(e)}"
