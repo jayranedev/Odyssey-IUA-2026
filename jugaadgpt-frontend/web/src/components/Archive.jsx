@@ -192,8 +192,8 @@ export const ArchiveScreen = () => {
     e.stopPropagation();
     try {
       await fetch(`${API_BASE}/api/archive/generate-images`, { headers: authHeaders() });
-      // Refetch after a delay to show the new image
-      setTimeout(fetchCards, 5000);
+      // Refetch after a longer delay (15s) to give pollinations.ai enough time to generate the image
+      setTimeout(fetchCards, 15000);
     } catch { /* best-effort */ }
   };
 
