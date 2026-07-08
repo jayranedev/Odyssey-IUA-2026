@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppShell } from './AppShell';
 import { authHeaders } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 const API_BASE = 'https://odyssey-iua-2026-1.onrender.com';
 const BLUEPRINT_KEY = 'jg_blueprint';
@@ -135,6 +136,7 @@ const SolutionModal = ({ card, onClose }) => {
 };
 
 export const ArchiveScreen = () => {
+  const { user, sessionVersion } = useAuth();
   const [cards, setCards] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -144,10 +146,15 @@ export const ArchiveScreen = () => {
 
   const fetchCards = async () => {
     setLoading(true);
+    setError(null);
     try {
-      const url = sessionId
-        ? `${API_BASE}/api/archive?session_id=${sessionId}`
-        : `${API_BASE}/api/archive`;
+      // When logged in, don't pass session_id — backend returns all user's cards
+      // When anonymous, pass session_id for device-scoped results
+      const url = user
+        ? `${API_BASE}/api/archive`
+        : sessionId
+          ? `${API_BASE}/api/archive?session_id=${sessionId}`
+          : `${API_BASE}/api/archive`;
       const res = await fetch(url, { headers: authHeaders() });
       if (!res.ok) throw new Error(`Server ${res.status}`);
       setCards(await res.json());
@@ -158,7 +165,8 @@ export const ArchiveScreen = () => {
     }
   };
 
-  useEffect(() => { fetchCards(); }, []);
+  // Re-fetch when auth state changes (login/logout) or on mount
+  useEffect(() => { fetchCards(); }, [sessionVersion, user?.id]);
 
   const toggleStar = async (e, id, currentStarred) => {
     e.stopPropagation();
@@ -177,6 +185,15 @@ export const ArchiveScreen = () => {
       await fetch(`${API_BASE}/api/archive/${id}`, { method: 'DELETE', headers: authHeaders() });
       setCards(prev => prev.filter(c => c.id !== id));
       if (activeCard?.id === id) setActiveCard(null);
+    } catch { /* best-effort */ }
+  };
+
+  const regenerateImage = async (e, cardId, title) => {
+    e.stopPropagation();
+    try {
+      await fetch(`${API_BASE}/api/archive/generate-images`, { headers: authHeaders() });
+      // Refetch after a delay to show the new image
+      setTimeout(fetchCards, 5000);
     } catch { /* best-effort */ }
   };
 
@@ -228,6 +245,7 @@ export const ArchiveScreen = () => {
               onClick={() => setActiveCard(card)}
               onStar={(e) => toggleStar(e, card.id, card.starred)}
               onDelete={(e) => deleteCard(e, card.id)}
+              onRegenImage={(e) => regenerateImage(e, card.id, card.title)}
             />
           ))}
         </div>
@@ -239,14 +257,18 @@ export const ArchiveScreen = () => {
   );
 };
 
-const PolaroidCard = ({ card, onClick, onStar, onDelete }) => {
+const PolaroidCard = ({ card, onClick, onStar, onDelete, onRegenImage }) => {
   const rotation = card.rotation || 'rotate-1';
   const bg = card.bg_color || 'bg-white';
   
-  // Try to use image_id or fallback to image
-  const imageUrl = card.image_id 
-    ? `${API_BASE}/api/vision/${card.image_id}` 
-    : card.image;
+  // Display image: prefer image_base64 (AI-generated), then image_id, then image URL
+  const imageDataUri = card.image_base64
+    ? `data:image/png;base64,${card.image_base64}`
+    : null;
+  const imageUrl = imageDataUri
+    || (card.image_id ? `${API_BASE}/api/vision/${card.image_id}` : null)
+    || card.image
+    || null;
 
   return (
     <div
@@ -267,7 +289,20 @@ const PolaroidCard = ({ card, onClick, onStar, onDelete }) => {
         {imageUrl ? (
           <img src={imageUrl} alt={card.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
-          <div style={{ fontSize: 40, color: '#ccc' }}>⚙</div>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+            <div style={{ fontSize: 40, color: '#ccc' }}>⚙</div>
+            <button
+              onClick={onRegenImage}
+              style={{
+                fontSize: 9, fontFamily: 'JetBrains Mono, monospace', fontWeight: 700,
+                textTransform: 'uppercase', padding: '3px 8px',
+                background: 'var(--jg2-yellow)', border: '1px solid var(--jg2-ink)',
+                cursor: 'pointer', color: 'var(--jg2-ink)', letterSpacing: '0.05em',
+              }}
+            >
+              Generate Image
+            </button>
+          </div>
         )}
         {/* Tape strip at top */}
         <div style={{ position: 'absolute', top: -4, left: '50%', transform: 'translateX(-50%)', width: 60, height: 18, background: 'rgba(255,255,180,0.8)', boxShadow: '0 1px 3px rgba(0,0,0,0.15)' }} />

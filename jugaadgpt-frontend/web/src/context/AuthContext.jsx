@@ -7,6 +7,7 @@ const AuthContext = createContext({
   user: null,
   authEnabled: false,
   loginOpen: false,
+  sessionVersion: 0,
   openLogin: () => {},
   closeLogin: () => {},
   signInWithGoogle: async () => {},
@@ -18,6 +19,9 @@ const AuthContext = createContext({
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loginOpen, setLoginOpen] = useState(false);
+  // Incremented on every sign-in so downstream components (ChatScreen, Archive)
+  // know to re-fetch data from the server.
+  const [sessionVersion, setSessionVersion] = useState(0);
 
   // After login, attach this device's anonymous chats to the account.
   const claimSessions = useCallback(async () => {
@@ -38,7 +42,7 @@ export function AuthProvider({ children }) {
       setUser(data.session?.user || null);
     });
 
-    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
       setAccessToken(session?.access_token || null);
       setUser(session?.user || null);
 
@@ -51,7 +55,10 @@ export function AuthProvider({ children }) {
       }
 
       if (event === 'SIGNED_IN') {
-        claimSessions();
+        await claimSessions();
+        // Bump sessionVersion AFTER claiming so downstream components
+        // reload with claimed sessions included.
+        setSessionVersion(v => v + 1);
         setLoginOpen(false);
       }
     });
@@ -99,6 +106,7 @@ export function AuthProvider({ children }) {
         user,
         authEnabled,
         loginOpen,
+        sessionVersion,
         openLogin: () => setLoginOpen(true),
         closeLogin: () => setLoginOpen(false),
         signInWithGoogle,
@@ -115,4 +123,3 @@ export function AuthProvider({ children }) {
 export function useAuth() {
   return useContext(AuthContext);
 }
-

@@ -4,38 +4,67 @@ import logging
 
 import requests
 
+from app.config import settings
+
 logger = logging.getLogger(__name__)
+
 
 def send_request(prompt=None, index=None):
     if prompt is None:
-        prompt = "Pipe ka size check karo: Apne ghar ke nal (tap) ka size dekho. Zyada tar Indian ghar mein 1/2 inch ya 3/4 inch ka tap hota hai. Agar 3/4 inch hai to female adapter bhi wahi size lao. Pipe ko haath se tap ke paas rakho — gap estimate karo."
+        prompt = (
+            "Pipe ka size check karo: Apne ghar ke nal (tap) ka size dekho. "
+            "Zyada tar Indian ghar mein 1/2 inch ya 3/4 inch ka tap hota hai."
+        )
     if index is None:
         index = 1
 
-    # Matching the exact nested payload structure
-    payload = [[["q4uTj", json.dumps([None, json.dumps({"instances": [{"prompt": prompt}], "parameters": {"sampleCount": 1}}), 2]), None, "generic"]]]
+    # Use the GEMINI_COOKIE from environment config
+    cookie = settings.gemini_cookie
+    if not cookie:
+        logger.warning("GEMINI_COOKIE not set — image generation disabled")
+        return None
 
-    url = 'https://gemini.google.com/_/BardChatUi/data/batchexecute'
+    # Matching the exact nested payload structure
+    payload = [
+        [
+            [
+                "q4uTj",
+                json.dumps(
+                    [
+                        None,
+                        json.dumps(
+                            {
+                                "instances": [{"prompt": prompt}],
+                                "parameters": {"sampleCount": 1},
+                            }
+                        ),
+                        2,
+                    ]
+                ),
+                None,
+                "generic",
+            ]
+        ]
+    ]
+
+    url = "https://gemini.google.com/_/BardChatUi/data/batchexecute"
 
     headers = {
-        'Cookie': 'NID=530%3DmVT...', # Replace with your actual full cookie
-        'User-Agent': 'Mozilla/5.0',
-        'Content-Type': 'application/x-www-form-urlencoded'
+        "Cookie": f"NID={cookie}" if not cookie.startswith("NID=") else cookie,
+        "User-Agent": "Mozilla/5.0",
+        "Content-Type": "application/x-www-form-urlencoded",
     }
 
     try:
-        # BatchExecute usually expects the payload in a 'f.req' form field
-        data = {'f.req': json.dumps(payload)}
+        data = {"f.req": json.dumps(payload)}
 
         response = requests.post(url, headers=headers, data=data)
         response.raise_for_status()
 
         # Cleaning the prefix )]}'
-        clean_text = response.text.replace(")]}'", "").strip()
+        clean_text = response.text.replace(")]}'\n", "").strip()
         outer_data = json.loads(clean_text)
 
-        # Flattening to find the string containing the base64 data
-        # We look for the item that contains "bytesBase64Encoded"
         def find_target(data_list):
             for item in data_list:
                 if isinstance(item, list):
@@ -51,23 +80,19 @@ def send_request(prompt=None, index=None):
         if target_string:
             final_object = json.loads(target_string)
 
-            # Handling the nested string/list logic from your original code
             if isinstance(final_object, list):
                 final_object = json.loads(final_object[0])
 
-            base64_data = final_object['predictions'][0]['bytesBase64Encoded']
+            base64_data = final_object["predictions"][0]["bytesBase64Encoded"]
 
-            # Writing the image file
-            with open(f"image{index}.png", "wb") as fh:
-                fh.write(base64.b64decode(base64_data))
-
-            logger.info("Successfully saved image%s.png", index)
+            logger.info("Successfully generated image for prompt: %s...", prompt[:40])
             return base64_data
 
     except Exception as e:
-        logger.warning("Request failed: %s", e)
+        logger.warning("Image generation request failed: %s", e)
 
     return None
+
 
 if __name__ == "__main__":
     send_request()

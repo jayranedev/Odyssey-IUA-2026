@@ -1,12 +1,12 @@
 import logging
 import uuid
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth import AuthUser, get_current_user_optional
+from app.auth import AuthUser, get_current_user_optional, get_device_id
 from app.db import AsyncSessionLocal, get_db
 from app.models.archive_card import ArchiveCard
 
@@ -64,7 +64,9 @@ async def _generate_and_store_image(card_id: str, prompt: str):
 async def create_card(
     body: ArchiveCardIn,
     background_tasks: BackgroundTasks,
+    request: Request,
     db: AsyncSession = Depends(get_db),
+    user: AuthUser | None = Depends(get_current_user_optional),
 ):
     # If image is a base64 data URI, route it to image_base64 (image column is VARCHAR 500)
     image_url = body.image or ""
@@ -76,6 +78,7 @@ async def create_card(
     card = ArchiveCard(
         id=body.id or str(uuid.uuid4()),
         session_id=body.session_id,
+        user_id=user.id if user else None,
         title=body.title,
         status=body.status,
         status_color=body.status_color,
@@ -102,20 +105,29 @@ async def create_card(
 
 @router.get("")
 async def list_cards(
-    session_id: str | None = None, 
+    session_id: str | None = None,
+    request: Request = None,
     user: AuthUser | None = Depends(get_current_user_optional),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     q = select(ArchiveCard).order_by(ArchiveCard.created_at.desc())
-    if user and user.user_id:
-        from app.models.chat_session import ChatSession
-        q = q.join(ChatSession, ArchiveCard.session_id == ChatSession.id)
-        q = q.where(ChatSession.user_id == user.user_id)
+
+    if user and user.id:
+        # Logged-in: show all cards belonging to this user (direct user_id match)
+        q = q.where(ArchiveCard.user_id == user.id)
     elif session_id:
+        # Anonymous: scope by session_id
         q = q.where(ArchiveCard.session_id == session_id)
     else:
-        return []
-    
+        # Try device_id scoping via sessions
+        device_id = get_device_id(request) if request else ""
+        if device_id:
+            from app.models.chat_session import ChatSession
+            q = q.join(ChatSession, ArchiveCard.session_id == ChatSession.id)
+            q = q.where(ChatSession.device_id == device_id, ChatSession.user_id.is_(None))
+        else:
+            return []
+
     result = await db.execute(q)
     return result.scalars().all()
 
@@ -146,10 +158,18 @@ async def get_card(card_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.patch("/{card_id}")
-async def update_card(card_id: str, body: ArchiveCardPatch, db: AsyncSession = Depends(get_db)):
+async def update_card(
+    card_id: str,
+    body: ArchiveCardPatch,
+    db: AsyncSession = Depends(get_db),
+    user: AuthUser | None = Depends(get_current_user_optional),
+):
     card = await db.get(ArchiveCard, card_id)
     if not card:
         raise HTTPException(404, "Card not found")
+    # Scope: only the owner can update
+    if card.user_id and user and card.user_id != user.id:
+        raise HTTPException(403, "Not your card")
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(card, field, value)
     await db.commit()
@@ -158,10 +178,17 @@ async def update_card(card_id: str, body: ArchiveCardPatch, db: AsyncSession = D
 
 
 @router.delete("/{card_id}")
-async def delete_card(card_id: str, db: AsyncSession = Depends(get_db)):
+async def delete_card(
+    card_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: AuthUser | None = Depends(get_current_user_optional),
+):
     card = await db.get(ArchiveCard, card_id)
     if not card:
         raise HTTPException(404, "Card not found")
+    # Scope: only the owner can delete
+    if card.user_id and user and card.user_id != user.id:
+        raise HTTPException(403, "Not your card")
     await db.delete(card)
     await db.commit()
     return {"deleted": card_id}

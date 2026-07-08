@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AppShell } from './AppShell';
 import { authHeaders } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 const API_BASE = 'https://odyssey-iua-2026-1.onrender.com';
 const WORKSHOP_KEY = 'jg_workshop_draft';
@@ -304,7 +305,7 @@ const ErrorBubble = ({ text }) => (
 
 // ── Sessions drawer ──────────────────────────────────────────────────────────
 
-const SessionsDrawer = ({ open, onClose, currentId, onSwitch }) => {
+const SessionsDrawer = ({ open, onClose, currentId, onSwitch, sessionVersion }) => {
   const [sessions, setSessions] = useState([]);
   
   useEffect(() => {
@@ -321,7 +322,7 @@ const SessionsDrawer = ({ open, onClose, currentId, onSwitch }) => {
       setSessions(loadSessions());
     };
     fetchRemote();
-  }, [open]);
+  }, [open, sessionVersion]);
 
   return (
     <div style={{
@@ -376,6 +377,7 @@ function mirrorToBackend(sessionId, title, lang, role, type, content) {
 
 export const ChatScreen = () => {
   const searchParams = useSearchParams();
+  const { user, sessionVersion } = useAuth();
   const [sessionId, setSessionId] = useState(() => {
     const queryId = searchParams?.get('session_id');
     if (queryId) {
@@ -399,7 +401,7 @@ export const ChatScreen = () => {
   const inputRef = useRef(null);
   const streamingIdxRef = useRef(null);
 
-  // Load workshop draft or existing session messages on mount
+  // Load workshop draft or existing session messages on mount (and on auth change)
   useEffect(() => {
     if (searchParams?.get('from') === 'workshop') {
       const raw = localStorage.getItem(WORKSHOP_KEY);
@@ -439,7 +441,7 @@ export const ChatScreen = () => {
       };
       loadRemote();
     }
-  }, [sessionId, searchParams]);
+  }, [sessionId, searchParams, sessionVersion]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -617,6 +619,7 @@ export const ChatScreen = () => {
       <SessionsDrawer
         open={showSessions} onClose={() => setShowSessions(false)}
         currentId={sessionId} onSwitch={switchSession}
+        sessionVersion={sessionVersion}
       />
 
       {toast && (

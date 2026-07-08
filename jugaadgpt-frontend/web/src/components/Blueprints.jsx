@@ -3,11 +3,15 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AppShell } from './AppShell';
 import { IconSpeaker, IconTools } from './Icons2';
+import { authHeaders } from '../services/api';
 
+const API_BASE = 'https://odyssey-iua-2026-1.onrender.com';
 const BLUEPRINT_KEY = 'jg_blueprint';
 
 export const BlueprintsScreen = () => {
   const [bpData, setBpData] = useState(null);
+  const [blueprintImage, setBlueprintImage] = useState(null);
+  const [imageLoading, setImageLoading] = useState(false);
 
   useEffect(() => {
     try {
@@ -28,11 +32,66 @@ export const BlueprintsScreen = () => {
         "Pedal at 60 RPM to start water suction from the source."
       ];
 
-  const materials = bpData?.bazaari_context?.materials || [
+  const materials = bpData?.bazaari_context?.materials || bpData?.materials || [
     { item: 'Old Cycle Frame', quantity: '1 Unit' },
     { item: 'Hand Pump Head', quantity: '1 Unit' },
     { item: 'PVC Pipe (2")', quantity: '10 Feet' }
   ];
+
+  // Load cached blueprint image, or generate one
+  useEffect(() => {
+    if (!title) return;
+    
+    const loadOrGenerate = async () => {
+      // Try loading cached image first
+      try {
+        const res = await fetch(`${API_BASE}/api/blueprint-image?title=${encodeURIComponent(title)}`, {
+          headers: authHeaders(),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.image_base64) {
+            setBlueprintImage(`data:image/png;base64,${data.image_base64}`);
+            return;
+          }
+        }
+      } catch {}
+
+      // No cached image — generate one
+      setImageLoading(true);
+      try {
+        const buildStepsStr = (bpData?.build_steps || steps).slice(0, 3).join(', ');
+        const materialsStr = materials.slice(0, 3).map(m => m.item).join(', ');
+        const prompt = (
+          `Technical blueprint schematic for: ${title}. ` +
+          `Materials: ${materialsStr}. Steps: ${buildStepsStr}. ` +
+          `Engineering drawing style, blue blueprint paper background, ` +
+          `white line drawings, isometric view, labeled parts, Indian jugaad DIY, no text`
+        );
+        
+        const genRes = await fetch(`${API_BASE}/api/generate-image`, {
+          method: 'POST',
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ prompt }),
+        });
+        if (genRes.ok) {
+          const genData = await genRes.json();
+          if (genData.base64) {
+            setBlueprintImage(`data:image/png;base64,${genData.base64}`);
+            // Cache for future visits
+            fetch(`${API_BASE}/api/blueprint-image`, {
+              method: 'POST',
+              headers: authHeaders({ 'Content-Type': 'application/json' }),
+              body: JSON.stringify({ title, image_base64: genData.base64 }),
+            }).catch(() => {});
+          }
+        }
+      } catch {}
+      setImageLoading(false);
+    };
+
+    loadOrGenerate();
+  }, [title]);
 
   return (
     <AppShell active="blueprints" bgClass="jg2-bg-paper">
@@ -75,7 +134,7 @@ export const BlueprintsScreen = () => {
               position: 'relative',
               overflow: 'hidden',
             }}>
-              {/* blueprint grid */}
+              {/* blueprint grid background */}
               <div style={{
                 position: 'absolute', inset: 0,
                 backgroundImage: `
@@ -87,57 +146,90 @@ export const BlueprintsScreen = () => {
                 backgroundSize: '40px 40px, 40px 40px, 8px 8px, 8px 8px',
               }}/>
 
-              {/* Dynamic Schematic Graphic */}
-              <div style={{ position: 'absolute', inset: 0, padding: 30, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 20 }}>
-                {steps.slice(0, 4).map((step, idx) => (
-                  <div key={idx} style={{
-                    display: 'flex', alignItems: 'center', gap: 16,
-                    transform: `translateX(${idx % 2 === 0 ? 0 : 30}px)`,
-                    opacity: 0.9
-                  }}>
-                    <div style={{
-                      width: 44, height: 44, borderRadius: '50%',
-                      background: 'transparent', border: '2px solid #A9C4E5',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontFamily: 'JetBrains Mono, monospace', fontSize: 18, color: '#A9C4E5',
-                      flexShrink: 0
-                    }}>
-                      0{idx + 1}
-                    </div>
-                    <div style={{
-                      flex: 1, height: '1px',
-                      background: 'repeating-linear-gradient(90deg, #A9C4E5 0, #A9C4E5 4px, transparent 4px, transparent 8px)'
-                    }} />
-                    <div style={{
-                      background: 'rgba(169, 196, 229, 0.1)', border: '1px solid rgba(169, 196, 229, 0.4)',
-                      padding: '8px 12px', borderRadius: 6,
-                      fontSize: 11, fontFamily: 'JetBrains Mono, monospace', color: '#A9C4E5',
-                      textTransform: 'uppercase', letterSpacing: '0.05em',
-                      maxWidth: '60%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-                    }}>
-                      {materials[idx % materials.length]?.item || 'ASSEMBLY PART'}
-                    </div>
-                  </div>
-                ))}
-
-                {materials.length > 0 && (
+              {/* AI-generated blueprint image or fallback schematic */}
+              {blueprintImage ? (
+                <img
+                  src={blueprintImage}
+                  alt={`Blueprint: ${title}`}
+                  style={{
+                    position: 'absolute', inset: 0,
+                    width: '100%', height: '100%',
+                    objectFit: 'cover',
+                    opacity: 0.9,
+                    mixBlendMode: 'screen',
+                  }}
+                />
+              ) : imageLoading ? (
+                <div style={{
+                  position: 'absolute', inset: 0,
+                  display: 'flex', flexDirection: 'column',
+                  alignItems: 'center', justifyContent: 'center', gap: 12,
+                }}>
                   <div style={{
-                    position: 'absolute',
-                    left: '50%', top: '50%',
-                    transform: 'translate(-50%, -50%)',
-                    background: 'var(--jg2-yellow)',
-                    border: '2px solid var(--jg2-ink)',
-                    padding: '8px 16px',
-                    fontSize: 12, fontWeight: 800,
-                    letterSpacing: '0.08em',
-                    color: 'var(--jg2-ink)',
-                    textTransform: 'uppercase',
-                    boxShadow: '4px 4px 0 rgba(0,0,0,0.5)',
+                    width: 32, height: 32, border: '3px solid #A9C4E5',
+                    borderTopColor: 'transparent', borderRadius: '50%',
+                    animation: 'spin 1s linear infinite',
+                  }} />
+                  <div style={{
+                    fontSize: 11, fontFamily: 'JetBrains Mono, monospace',
+                    color: '#A9C4E5', textTransform: 'uppercase', letterSpacing: '0.1em',
                   }}>
-                    CORE: {materials[0].item}
+                    Generating blueprint...
                   </div>
-                )}
-              </div>
+                </div>
+              ) : (
+                /* Fallback: Dynamic Schematic Graphic */
+                <div style={{ position: 'absolute', inset: 0, padding: 30, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 20 }}>
+                  {steps.slice(0, 4).map((step, idx) => (
+                    <div key={idx} style={{
+                      display: 'flex', alignItems: 'center', gap: 16,
+                      transform: `translateX(${idx % 2 === 0 ? 0 : 30}px)`,
+                      opacity: 0.9
+                    }}>
+                      <div style={{
+                        width: 44, height: 44, borderRadius: '50%',
+                        background: 'transparent', border: '2px solid #A9C4E5',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontFamily: 'JetBrains Mono, monospace', fontSize: 18, color: '#A9C4E5',
+                        flexShrink: 0
+                      }}>
+                        0{idx + 1}
+                      </div>
+                      <div style={{
+                        flex: 1, height: '1px',
+                        background: 'repeating-linear-gradient(90deg, #A9C4E5 0, #A9C4E5 4px, transparent 4px, transparent 8px)'
+                      }} />
+                      <div style={{
+                        background: 'rgba(169, 196, 229, 0.1)', border: '1px solid rgba(169, 196, 229, 0.4)',
+                        padding: '8px 12px', borderRadius: 6,
+                        fontSize: 11, fontFamily: 'JetBrains Mono, monospace', color: '#A9C4E5',
+                        textTransform: 'uppercase', letterSpacing: '0.05em',
+                        maxWidth: '60%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                      }}>
+                        {materials[idx % materials.length]?.item || 'ASSEMBLY PART'}
+                      </div>
+                    </div>
+                  ))}
+
+                  {materials.length > 0 && (
+                    <div style={{
+                      position: 'absolute',
+                      left: '50%', top: '50%',
+                      transform: 'translate(-50%, -50%)',
+                      background: 'var(--jg2-yellow)',
+                      border: '2px solid var(--jg2-ink)',
+                      padding: '8px 16px',
+                      fontSize: 12, fontWeight: 800,
+                      letterSpacing: '0.08em',
+                      color: 'var(--jg2-ink)',
+                      textTransform: 'uppercase',
+                      boxShadow: '4px 4px 0 rgba(0,0,0,0.5)',
+                    }}>
+                      CORE: {materials[0].item}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Voice help */}
@@ -221,6 +313,10 @@ export const BlueprintsScreen = () => {
           </div>
         </div>
       </div>
+
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+      `}</style>
     </AppShell>
   );
 };
