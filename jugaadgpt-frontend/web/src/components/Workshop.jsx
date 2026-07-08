@@ -140,7 +140,7 @@ export const WorkshopScreen = () => {
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1.55fr 1fr', gap: 18, marginBottom: 28 }}>
+        <div className="jg2-workshop-grid">
           <div className="jg2-card">
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',

@@ -573,8 +573,9 @@ export const ChatScreen = () => {
     }
   }, [sessionId, voiceLang]);
 
-  const handleSend = useCallback(() => {
-    const text = input.trim();
+  const handleSend = useCallback((e) => {
+    if (e) e.preventDefault();
+    const text = (interimText && !input ? interimText : input).trim();
     if (!text || loading) return;
     setInput('');
     setInterimText('');
@@ -731,7 +732,7 @@ export const ChatScreen = () => {
         </div>
 
         {/* Input bar */}
-        <form onSubmit={e => { e.preventDefault(); handleSend(); }} style={{
+        <form onSubmit={handleSend} style={{
           background: 'var(--jg2-card)', border: '2px solid var(--jg2-ink)',
           borderRadius: 12, padding: '10px 12px',
           display: 'flex', gap: 8, alignItems: 'flex-end',
@@ -772,6 +773,7 @@ export const ChatScreen = () => {
 
           <button
             type="submit"
+            onClick={handleSend}
             disabled={loading || (!input.trim() && !interimText.trim())}
             className="jg2-btn-navy"
             style={{ padding: '10px 18px', fontSize: 13, flexShrink: 0, opacity: loading || (!input.trim() && !interimText.trim()) ? 0.5 : 1 }}
