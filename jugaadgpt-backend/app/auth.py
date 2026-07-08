@@ -49,10 +49,15 @@ def _decode_token(token: str) -> AuthUser | None:
             audience="authenticated",
         )
     except JWTError as e:
-        logger.debug("JWT rejected: %s", e)
+        logger.error("JWT rejected: %s (Secret length: %d)", e, len(secret) if secret else 0)
         return None
+    except Exception as e:
+        logger.error("Unexpected error in JWT decoding: %s", e)
+        return None
+        
     sub = payload.get("sub")
     if not sub:
+        logger.error("JWT missing 'sub' claim")
         return None
     return AuthUser(id=sub, email=payload.get("email", "") or "")
 
