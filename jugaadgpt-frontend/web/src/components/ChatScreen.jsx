@@ -552,6 +552,14 @@ export const ChatScreen = () => {
           } else if (eventType === 'error') {
             pushMsg({ type: 'error', text: dataLine });
             pendingContext.current = [];
+          } else if (['login_required', 'quota_exhausted', 'capacity'].includes(eventType)) {
+            try {
+              const parsed = JSON.parse(dataLine);
+              pushMsg({ type: 'error', text: parsed.message || 'Capacity reached.' });
+            } catch {
+              pushMsg({ type: 'error', text: dataLine });
+            }
+            pendingContext.current = [];
           }
         }
       };
