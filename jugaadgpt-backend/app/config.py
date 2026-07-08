@@ -29,13 +29,13 @@ class Settings(BaseSettings):
             self.embedding_dim = 768 if self.embedding_provider == "gemini" else 384
 
     # Supabase Auth (backend only verifies the JWT — Supabase DB is not used)
-    supabase_url: str = ""
-    supabase_anon_key: str = ""
-    supabase_jwt_secret: str = ""
+    supabase_url: str = "https://zklugwmytddbotpvoqov.supabase.co"
+    supabase_anon_key: str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InprbHVnd215dGRkYm90cHZvcW92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0MTcxMDcsImV4cCI6MjA5ODk5MzEwN30.rjSccMIOqnQju0jzpk29kemWHnHmOYXbHSMcpB92UUA"
+    supabase_jwt_secret: str = "w///8Ahp/zN21YvvttwZ/lPjGOor7RxLD9MQ0cZuGQWJIskc9pn9EMF1+a9bxbsT3ZvVTXHYq/fmNk+YPG6x4Q=="
 
     # Daily generation quotas (generator runs only — clarifying turns don't count)
     free_daily_quota: int = 5     # anonymous, per device-id / per IP
-    auth_daily_quota: int = 25    # logged-in, per user
+    auth_daily_quota: int = 999999  # logged-in, unlimited access
     wa_daily_quota: int = 5       # WhatsApp, per phone number
 
     # Meta WhatsApp Cloud API
