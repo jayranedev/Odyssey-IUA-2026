@@ -217,7 +217,9 @@ async def query(
 
 
 def _sse(event: str, data: str) -> str:
-    return f"event: {event}\ndata: {data}\n\n"
+    # SSE requires each line of a multiline payload to be prefixed with "data: "
+    formatted_data = "\n".join(f"data: {line}" for line in data.split("\n"))
+    return f"event: {event}\n{formatted_data}\n\n"
 
 
 @router.post("/transcribe")
