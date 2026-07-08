@@ -30,7 +30,7 @@ def _decode_token(token: str) -> AuthUser | None:
     if not settings.supabase_jwt_secret:
         return None
     try:
-        secret = settings.supabase_jwt_secret
+        secret = settings.supabase_jwt_secret.strip()
         if "-" not in secret and "_" not in secret and (secret.endswith("=") or len(secret) % 4 == 0):
             try:
                 import base64
