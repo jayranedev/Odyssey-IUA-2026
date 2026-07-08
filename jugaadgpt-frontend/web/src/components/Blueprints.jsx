@@ -22,9 +22,9 @@ export const BlueprintsScreen = () => {
 
   const title = bpData?.title || 'Pedal-Powered Irrigation Pump';
   
-  // Parse solution string into steps
-  const steps = bpData?.solution 
-    ? bpData.solution.split('\n').filter(s => s.trim().length > 10)
+  // Use provided build steps or fallback to a default
+  const steps = (bpData?.build_steps && bpData.build_steps.length > 0)
+    ? bpData.build_steps
     : [
         "Secure the bicycle frame to the heavy wooden base using iron clamps.",
         "Connect the rear sprocket to the pump impeller using a standard cycle chain.",
