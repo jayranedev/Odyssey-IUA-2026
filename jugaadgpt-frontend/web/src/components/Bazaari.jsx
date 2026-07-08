@@ -32,7 +32,7 @@ export const BazaariScreen = () => {
       <div style={{ maxWidth: 880, margin: '0 auto', position: 'relative' }}>
         
         <div style={{ marginBottom: 12 }}>
-          <Link href="/" style={{
+          <Link href="/chat" style={{
             display: 'inline-flex', alignItems: 'center', gap: 6,
             fontSize: 12, fontFamily: 'JetBrains Mono, monospace', textTransform: 'uppercase',
             color: 'var(--jg2-mute)', textDecoration: 'none',

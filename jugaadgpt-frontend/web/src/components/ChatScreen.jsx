@@ -145,10 +145,9 @@ const SolutionBubble = ({ solution, saved, warnings, onSave }) => {
 
   const handleFindBazaari = () => {
     localStorage.setItem('jg_bazaari', JSON.stringify({
-      bazaari_context: {
-        total_cost_inr: solution.total_cost_inr,
-        materials: solution.materials
-      }
+      title: solution.title || 'Jugaad Solution',
+      total_cost_inr: solution.total_cost_inr,
+      materials: solution.materials
     }));
     router.push('/bazaari');
   };
@@ -174,49 +173,8 @@ const SolutionBubble = ({ solution, saved, warnings, onSave }) => {
       </div>
 
       <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div>
-          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>{solution.title}</div>
-          <div style={{ fontSize: 13, lineHeight: 1.65, color: 'var(--jg2-graphite)' }}>{solution.summary}</div>
-        </div>
-
-        {solution.materials?.length > 0 && (
-          <div style={{ background: 'var(--jg2-kraft-light)', padding: '10px 14px', borderRadius: 6 }}>
-            <div style={{ fontSize: 11, fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, textTransform: 'uppercase', marginBottom: 8, letterSpacing: '0.05em' }}>Materials</div>
-            {solution.materials.map((m, i) => (
-              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '3px 0', borderBottom: i < solution.materials.length - 1 ? '1px solid var(--jg2-kraft)' : 'none' }}>
-                <span>{m.item} <span style={{ color: 'var(--jg2-mute)', fontSize: 11 }}>({m.quantity})</span></span>
-                <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 600, flexShrink: 0, paddingLeft: 12 }}>₹{m.cost_inr?.toFixed(0)}</span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {solution.build_steps?.length > 0 && (
-          <div>
-            <div style={{ fontSize: 11, fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, textTransform: 'uppercase', marginBottom: 8, letterSpacing: '0.05em' }}>How to Build</div>
-            {solution.build_steps.map((step, i) => (
-              <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 6, fontSize: 13, lineHeight: 1.6 }}>
-                <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, color: 'var(--jg2-brick)', flexShrink: 0, minWidth: 20 }}>{i + 1}.</span>
-                <span style={{ color: 'var(--jg2-graphite)' }}>{step}</span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {solution.expected_outcome && (
-          <div style={{ background: 'var(--jg2-brick-soft)', padding: '10px 14px', borderRadius: 6, fontSize: 13, lineHeight: 1.6 }}>
-            <strong>Expected result:</strong> {solution.expected_outcome}
-          </div>
-        )}
-
-        {warnings?.length > 0 && (
-          <div style={{ fontSize: 12, color: 'var(--jg2-brick)', fontFamily: 'JetBrains Mono, monospace' }}>
-            ⚠ {warnings.join(' · ')}
-          </div>
-        )}
-
-        {/* Save to Archive */}
-        <div style={{ borderTop: '1px dashed var(--jg2-kraft)', paddingTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {/* Action Buttons (Moved to top for easy access without scrolling) */}
+        <div style={{ borderBottom: '1px dashed var(--jg2-kraft)', paddingBottom: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button
             onClick={onSave}
             disabled={saved}
@@ -261,6 +219,47 @@ const SolutionBubble = ({ solution, saved, warnings, onSave }) => {
             🛒 Find in Bazaari
           </button>
         </div>
+
+        <div>
+          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>{solution.title}</div>
+          <div style={{ fontSize: 13, lineHeight: 1.65, color: 'var(--jg2-graphite)' }}>{solution.summary}</div>
+        </div>
+
+        {solution.materials?.length > 0 && (
+          <div style={{ background: 'var(--jg2-kraft-light)', padding: '10px 14px', borderRadius: 6 }}>
+            <div style={{ fontSize: 11, fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, textTransform: 'uppercase', marginBottom: 8, letterSpacing: '0.05em' }}>Materials</div>
+            {solution.materials.map((m, i) => (
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '3px 0', borderBottom: i < solution.materials.length - 1 ? '1px solid var(--jg2-kraft)' : 'none' }}>
+                <span>{m.item} <span style={{ color: 'var(--jg2-mute)', fontSize: 11 }}>({m.quantity})</span></span>
+                <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 600, flexShrink: 0, paddingLeft: 12 }}>₹{m.cost_inr?.toFixed(0)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {solution.build_steps?.length > 0 && (
+          <div>
+            <div style={{ fontSize: 11, fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, textTransform: 'uppercase', marginBottom: 8, letterSpacing: '0.05em' }}>How to Build</div>
+            {solution.build_steps.map((step, i) => (
+              <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 6, fontSize: 13, lineHeight: 1.6 }}>
+                <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, color: 'var(--jg2-brick)', flexShrink: 0, minWidth: 20 }}>{i + 1}.</span>
+                <span style={{ color: 'var(--jg2-graphite)' }}>{step}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {solution.expected_outcome && (
+          <div style={{ background: 'var(--jg2-brick-soft)', padding: '10px 14px', borderRadius: 6, fontSize: 13, lineHeight: 1.6 }}>
+            <strong>Expected result:</strong> {solution.expected_outcome}
+          </div>
+        )}
+
+        {warnings?.length > 0 && (
+          <div style={{ fontSize: 12, color: 'var(--jg2-brick)', fontFamily: 'JetBrains Mono, monospace' }}>
+            ⚠ {warnings.join(' · ')}
+          </div>
+        )}
       </div>
     </div>
   </div>
@@ -639,7 +638,7 @@ export const ChatScreen = () => {
   };
 
   return (
-    <AppShell active="workshop" bgClass="jg2-bg-grid">
+    <AppShell active="chat" bgClass="jg2-bg-grid">
       <style>{`
         @keyframes jg-pulse { 0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); } 40% { opacity: 1; transform: scale(1); } }
         @keyframes jg-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
