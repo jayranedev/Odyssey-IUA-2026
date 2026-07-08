@@ -377,7 +377,7 @@ function mirrorToBackend(sessionId, title, lang, role, type, content) {
 
 export const ChatScreen = () => {
   const searchParams = useSearchParams();
-  const { user, sessionVersion } = useAuth();
+  const { user, sessionVersion, signOut, openLogin } = useAuth();
   const [sessionId, setSessionId] = useState(() => {
     const queryId = searchParams?.get('session_id');
     if (queryId) {
@@ -558,6 +558,10 @@ export const ChatScreen = () => {
               pushMsg({ type: 'error', text: parsed.message || 'Capacity reached.' });
             } catch {
               pushMsg({ type: 'error', text: dataLine });
+            }
+            if (eventType === 'login_required') {
+              if (user) signOut().catch(() => {});
+              openLogin();
             }
             pendingContext.current = [];
           }
