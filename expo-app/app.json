@@ -15,8 +15,8 @@
     ],
     "extra": {
       "apiBaseUrl": "https://odyssey-iua-2026-1.onrender.com",
-      "supabaseUrl": "",
-      "supabaseAnonKey": ""
+      "supabaseUrl": "https://zklugwmytddbotpvoqov.supabase.co",
+      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InprbHVnd215dGRkYm90cHZvcW92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0MTcxMDcsImV4cCI6MjA5ODk5MzEwN30.rjSccMIOqnQju0jzpk29kemWHnHmOYXbHSMcpB92UUA"
     },
     "android": {
       "package": "com.jugaadgpt.mobile",

@@ -45,6 +45,21 @@ export async function verifyOtp(email, token) {
   return result;
 }
 
+export async function signInWithPassword(email, password) {
+  if (!supabase) return { error: { message: 'Auth not configured' } };
+  const result = await supabase.auth.signInWithPassword({ email, password });
+  if (!result.error) {
+    setAccessToken(result.data.session?.access_token || null);
+    claimSessions().catch(() => {});
+  }
+  return result;
+}
+
+export async function signUpWithPassword(email, password) {
+  if (!supabase) return { error: { message: 'Auth not configured' } };
+  return supabase.auth.signUp({ email, password });
+}
+
 export async function signOut() {
   if (!supabase) return;
   await supabase.auth.signOut();

@@ -5,7 +5,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -17,6 +16,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system';
+import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
 
 // SCREEN_WIDTH available if needed for responsive sizing
 
@@ -24,7 +24,7 @@ import * as FileSystem from 'expo-file-system';
 // API base URL comes from app.json → expo.extra.apiBaseUrl
 // (for LAN dev: ipconfig → Mobile Hotspot IPv4, run backend with --host 0.0.0.0)
 import { API_BASE, authHeaders, getDeviceId } from './api';
-import { authEnabled, restoreSession, sendOtp, verifyOtp } from './auth';
+import { authEnabled, restoreSession, signInWithPassword, signUpWithPassword, signOut, supabase } from './auth';
 
 function genId() {
   return `mobile_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -52,6 +52,7 @@ const palette = {
 
 const navItems = [
   { id: 'workshop', label: 'WORKSHOP', icon: 'hammer-wrench' },
+  { id: 'chats', label: 'CHATS', icon: 'forum-outline' },
   { id: 'blueprints', label: 'BLUEPRINTS', icon: 'compass-outline' },
   { id: 'bazaari', label: 'BAZAARI', icon: 'storefront-outline' },
   { id: 'archive', label: 'ARCHIVE', icon: 'archive-outline' },
@@ -144,18 +145,21 @@ function SolutionCard({ solution, onBlueprint, onBazaari, onSave, saved }) {
   const [expanded, setExpanded] = useState(false);
   return (
     <View style={styles.solutionCard}>
-      <View style={styles.solutionHeader}>
-        <Text style={styles.solutionTitle}>{solution.title}</Text>
+      <View style={styles.solutionHeaderTop}>
+        <Text style={styles.solutionHeaderTopText}>JUGAAD SOLUTION</Text>
         {solution.total_cost_inr > 0 && (
-          <View style={styles.costBadge}>
-            <Text style={styles.costBadgeText}>₹{Math.round(solution.total_cost_inr)}</Text>
-          </View>
+          <Text style={styles.solutionHeaderTopCost}>₹{Math.round(solution.total_cost_inr)}</Text>
         )}
       </View>
+      
+      <View style={{ padding: 16 }}>
+        <View style={styles.solutionHeader}>
+          <Text style={styles.solutionTitle}>{solution.title}</Text>
+        </View>
 
-      {solution.summary ? (
-        <Text style={styles.solutionSummary}>{solution.summary}</Text>
-      ) : null}
+        {solution.summary ? (
+          <Text style={styles.solutionSummary}>{solution.summary}</Text>
+        ) : null}
 
       {expanded && (
         <>
@@ -198,23 +202,24 @@ function SolutionCard({ solution, onBlueprint, onBazaari, onSave, saved }) {
 
       <View style={styles.solutionActions}>
         {onSave && (
-          <Pressable style={[styles.actionBtn, saved && { opacity: 0.5, backgroundColor: palette.sageLight }]} onPress={saved ? null : onSave}>
-            <Ico name={saved ? 'check' : 'archive-plus-outline'} size={16} color={palette.ink} />
-            <Text style={styles.actionBtnText}>{saved ? 'SAVED' : 'SAVE'}</Text>
+          <Pressable style={[styles.actionBtn, saved && { backgroundColor: palette.kraftLight }]} onPress={saved ? null : onSave}>
+            <Ico name={saved ? 'check' : 'archive-plus-outline'} size={14} color={palette.ink} />
+            <Text style={styles.actionBtnText}>{saved ? 'SAVED TO ARCHIVE' : 'SAVE TO ARCHIVE'}</Text>
           </Pressable>
         )}
         {solution.build_steps?.length > 0 && (
-          <Pressable style={styles.actionBtn} onPress={onBlueprint}>
-            <Ico name="floor-plan" size={16} color={palette.ink} />
-            <Text style={styles.actionBtnText}>BLUEPRINT</Text>
+          <Pressable style={[styles.actionBtn, { backgroundColor: palette.paper }]} onPress={onBlueprint}>
+            <Ico name="floor-plan" size={14} color={palette.ink} />
+            <Text style={styles.actionBtnText}>LOAD BLUEPRINT</Text>
           </Pressable>
         )}
         {solution.materials?.length > 0 && (
-          <Pressable style={[styles.actionBtn, { backgroundColor: palette.ink }]} onPress={onBazaari}>
-            <Ico name="storefront-outline" size={16} color={palette.white} />
-            <Text style={[styles.actionBtnText, { color: palette.white }]}>BAZAARI</Text>
+          <Pressable style={[styles.actionBtn, { backgroundColor: palette.paper }]} onPress={onBazaari}>
+            <Ico name="storefront-outline" size={14} color={palette.ink} />
+            <Text style={styles.actionBtnText}>FIND IN BAZAARI</Text>
           </Pressable>
         )}
+      </View>
       </View>
     </View>
   );
@@ -554,7 +559,7 @@ function ArchiveScreen({ onSelectCard }) {
 
 const WELCOME_MSG = { id: 'welcome', type: 'assistant', text: 'Kya banana chahte ho? Budget aur jagah batao — main jugaad solution dhoondta hoon.' };
 
-function AIHub({ visible, onClose, onSolution, budget, scannedImage, scannedImageB64, onSaveToArchive, onShowHistory }) {
+function AIHub({ visible, sessionIdOverride, onClose, onSolution, budget, scannedImage, scannedImageB64, onSaveToArchive, onShowHistory }) {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState([WELCOME_MSG]);
   const [isTyping, setIsTyping] = useState(false);
@@ -563,13 +568,50 @@ function AIHub({ visible, onClose, onSolution, budget, scannedImage, scannedImag
   const [isRecording, setIsRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
-  const [sessionId, setSessionId] = useState(() => genId());
+  const [sessionId, setSessionId] = useState(() => sessionIdOverride || genId());
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const scrollRef = useRef();
   const xhrRef = useRef(null);
   const recordingRef = useRef(null);
   const sessionTitleRef = useRef('New Chat'); // tracks first user msg for DB upsert
   const langRef = useRef(lang);
   useEffect(() => { langRef.current = lang; }, [lang]);
+
+  useEffect(() => {
+    if (!visible) return;
+    if (sessionIdOverride) {
+      setSessionId(sessionIdOverride);
+      setLoadingHistory(true);
+      fetch(`${API_BASE}/api/sessions/${sessionIdOverride}`, { headers: authHeaders() })
+        .then(r => r.json())
+        .then(data => {
+          if (data.messages && data.messages.length > 0) {
+            const formatted = data.messages.map(m => {
+              const parsed = JSON.parse(m.content_json);
+              return {
+                id: m.id,
+                type: m.type,
+                text: (m.type === 'user' || m.type === 'assistant') ? parsed.text : null,
+                solution: m.type === 'solution' ? parsed : null
+              };
+            });
+            setMessages(formatted);
+            sessionTitleRef.current = data.title || 'Loaded Chat';
+          } else {
+            setMessages([WELCOME_MSG]);
+            sessionTitleRef.current = 'New Chat';
+          }
+          setLoadingHistory(false);
+        })
+        .catch(() => {
+          setMessages([WELCOME_MSG]);
+          sessionTitleRef.current = 'New Chat';
+          setLoadingHistory(false);
+        });
+    } else {
+      startNewChat();
+    }
+  }, [sessionIdOverride, visible]);
 
   // Fire-and-forget: upsert session then append a message to DB
   const persistMessage = useCallback((role, type, content) => {
@@ -791,7 +833,13 @@ function AIHub({ visible, onClose, onSolution, budget, scannedImage, scannedImag
           onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
           keyboardShouldPersistTaps="handled"
         >
-          {messages.map(msg => {
+          {loadingHistory && (
+            <View style={{ alignItems: 'center', marginVertical: 20 }}>
+              <ActivityIndicator color={palette.ink} />
+              <Text style={{ marginTop: 8, fontSize: 12, color: palette.mute }}>Loading your chat...</Text>
+            </View>
+          )}
+          {!loadingHistory && messages.map(msg => {
             if (msg.type === 'solution') {
               return (
                 <View key={msg.id} style={{ marginBottom: 12 }}>
@@ -868,28 +916,37 @@ function AIHub({ visible, onClose, onSolution, budget, scannedImage, scannedImag
   );
 }
 
-// ─── LOGIN SHEET (email OTP via Supabase) ────────────────────
+// ─── LOGIN SHEET (Email + Password) ──────────────────────────
 
 function LoginSheet({ onClose }) {
-  const [step, setStep] = useState('email'); // email | code
+  const [mode, setMode] = useState('login'); // login | signup
   const [email, setEmail] = useState('');
-  const [code, setCode] = useState('');
+  const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSend = async () => {
-    if (!email.trim()) return;
+  const handleAction = async () => {
+    if (!email.trim() || !password.trim()) return;
+    if (mode === 'signup' && password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
     setBusy(true); setError('');
-    const { error: err } = await sendOtp(email.trim());
-    setBusy(false);
-    if (err) { setError(err.message); return; }
-    setStep('code');
-  };
-
-  const handleVerify = async () => {
-    if (!code.trim()) return;
-    setBusy(true); setError('');
-    const { error: err } = await verifyOtp(email.trim(), code.trim());
+    
+    let err = null;
+    if (mode === 'login') {
+      const res = await signInWithPassword(email.trim(), password);
+      err = res.error;
+    } else {
+      const res = await signUpWithPassword(email.trim(), password);
+      err = res.error;
+      if (!err && !res.data?.session) {
+        // If require email confirmation is on, session will be null.
+        setError('Signup successful. Please verify your email.');
+        setBusy(false);
+        return;
+      }
+    }
     setBusy(false);
     if (err) { setError(err.message); return; }
     onClose();
@@ -900,51 +957,50 @@ function LoginSheet({ onClose }) {
       <SafeAreaView style={{ flex: 1, justifyContent: 'flex-end' }}>
         <View style={{ backgroundColor: palette.paper, borderTopWidth: 3, borderColor: palette.ink, padding: 20 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-            <Text style={{ flex: 1, fontSize: 18, fontWeight: '900', color: palette.ink }}>LOG IN TO JUGAADGPT</Text>
+            <Text style={{ flex: 1, fontSize: 18, fontWeight: '900', color: palette.ink }}>
+              {mode === 'login' ? 'LOG IN TO JUGAADGPT' : 'CREATE ACCOUNT'}
+            </Text>
             <Pressable onPress={onClose}><Ico name="close" size={26} /></Pressable>
           </View>
           <Text style={{ fontSize: 13, color: palette.mute, marginBottom: 14 }}>
-            25 jugaads/day + chats saved to your account. Hum email par 6-digit code bhejenge.
+            25 jugaads/day + chats saved to your account.
           </Text>
-          {step === 'email' ? (
-            <>
-              <TextInput
-                style={{ borderWidth: 2, borderColor: palette.ink, backgroundColor: palette.white, padding: 10, fontSize: 15, marginBottom: 10 }}
-                placeholder="you@example.com"
-                placeholderTextColor={palette.mute}
-                autoCapitalize="none"
-                keyboardType="email-address"
-                value={email}
-                onChangeText={setEmail}
-              />
-              <Pressable
-                onPress={handleSend}
-                disabled={busy}
-                style={{ backgroundColor: palette.yellow, borderWidth: 2, borderColor: palette.ink, padding: 12, alignItems: 'center', opacity: busy ? 0.5 : 1 }}
-              >
-                <Text style={{ fontWeight: '900', color: palette.ink }}>{busy ? 'BHEJ RAHE HAIN…' : 'EMAIL ME A CODE'}</Text>
-              </Pressable>
-            </>
-          ) : (
-            <>
-              <TextInput
-                style={{ borderWidth: 2, borderColor: palette.ink, backgroundColor: palette.white, padding: 10, fontSize: 20, letterSpacing: 6, textAlign: 'center', marginBottom: 10 }}
-                placeholder="123456"
-                placeholderTextColor={palette.mute}
-                keyboardType="number-pad"
-                value={code}
-                onChangeText={setCode}
-              />
-              <Pressable
-                onPress={handleVerify}
-                disabled={busy}
-                style={{ backgroundColor: palette.yellow, borderWidth: 2, borderColor: palette.ink, padding: 12, alignItems: 'center', opacity: busy ? 0.5 : 1 }}
-              >
-                <Text style={{ fontWeight: '900', color: palette.ink }}>{busy ? 'CHECKING…' : 'VERIFY & LOG IN'}</Text>
-              </Pressable>
-            </>
-          )}
-          {!!error && <Text style={{ color: palette.brick, fontSize: 12, marginTop: 8 }}>{error}</Text>}
+          
+          <TextInput
+            style={{ borderWidth: 2, borderColor: palette.ink, backgroundColor: palette.white, padding: 10, fontSize: 15, marginBottom: 10 }}
+            placeholder="you@example.com"
+            placeholderTextColor={palette.mute}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            value={email}
+            onChangeText={setEmail}
+          />
+          <TextInput
+            style={{ borderWidth: 2, borderColor: palette.ink, backgroundColor: palette.white, padding: 10, fontSize: 15, marginBottom: 14 }}
+            placeholder="Password"
+            placeholderTextColor={palette.mute}
+            secureTextEntry
+            value={password}
+            onChangeText={setPassword}
+          />
+
+          <Pressable
+            onPress={handleAction}
+            disabled={busy}
+            style={{ backgroundColor: palette.yellow, borderWidth: 2, borderColor: palette.ink, padding: 12, alignItems: 'center', opacity: busy ? 0.5 : 1 }}
+          >
+            <Text style={{ fontWeight: '900', color: palette.ink }}>
+              {busy ? 'PLEASE WAIT…' : mode === 'login' ? 'LOG IN' : 'SIGN UP'}
+            </Text>
+          </Pressable>
+
+          <Pressable onPress={() => setMode(mode === 'login' ? 'signup' : 'login')} style={{ marginTop: 16, alignItems: 'center' }}>
+            <Text style={{ color: palette.ink, textDecorationLine: 'underline', fontSize: 13 }}>
+              {mode === 'login' ? 'Need an account? Sign up' : 'Already have an account? Log in'}
+            </Text>
+          </Pressable>
+
+          {!!error && <Text style={{ color: error.includes('successful') ? palette.ink : palette.brick, fontSize: 12, marginTop: 12, textAlign: 'center' }}>{error}</Text>}
         </View>
       </SafeAreaView>
     </View>
@@ -986,9 +1042,60 @@ function ArchiveModal({ card, onClose, onBlueprint, onBazaari }) {
   );
 }
 
+// ─── ACCOUNT SHEET ──────────────────────────────────────────────
+
+function AccountSheet({ user, onClose, onShowLogin, onLogout }) {
+  const [showLocalLogin, setShowLocalLogin] = useState(false);
+
+  return (
+    <View style={[styles.aiOverlay, { backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 200 }]}>
+      <SafeAreaView style={{ flex: 1, justifyContent: 'flex-end' }}>
+        <View style={{ backgroundColor: palette.paper, borderTopWidth: 3, borderColor: palette.ink, padding: 20 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+            <Text style={{ flex: 1, fontSize: 18, fontWeight: '900', color: palette.ink }}>ACCOUNT</Text>
+            <Pressable onPress={onClose}><Ico name="close" size={26} /></Pressable>
+          </View>
+          
+          {user ? (
+            <View style={{ marginBottom: 10 }}>
+              <Text style={{ fontSize: 13, color: palette.mute, marginBottom: 4 }}>LOGGED IN AS</Text>
+              <Text style={{ fontSize: 16, fontWeight: '900', color: palette.ink, marginBottom: 20 }}>{user.email}</Text>
+              <Pressable
+                onPress={onLogout}
+                style={{ backgroundColor: palette.paper, borderWidth: 2, borderColor: palette.ink, padding: 12, alignItems: 'center' }}
+              >
+                <Text style={{ fontWeight: '900', color: palette.brick }}>LOG OUT</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <View style={{ marginBottom: 10, alignItems: 'center' }}>
+              <Ico name="account-circle-outline" size={48} color={palette.mute} />
+              <Text style={{ fontSize: 14, color: palette.mute, textAlign: 'center', marginVertical: 12 }}>
+                Log in to save chats across devices and get 25 jugaads/day.
+              </Text>
+              <Pressable
+                onPress={() => setShowLocalLogin(true)}
+                style={{ backgroundColor: palette.yellow, borderWidth: 2, borderColor: palette.ink, padding: 12, alignItems: 'center', width: '100%' }}
+              >
+                <Text style={{ fontWeight: '900', color: palette.ink }}>LOG IN</Text>
+              </Pressable>
+            </View>
+          )}
+        </View>
+      </SafeAreaView>
+      
+      {showLocalLogin && (
+        <LoginSheet onClose={() => { setShowLocalLogin(false); onClose(); }} />
+      )}
+    </View>
+  );
+}
+
 // ─── HISTORY MODAL ───────────────────────────────────────────
 
-function HistoryModal({ onClose }) {
+// ─── CHATS SCREEN ──────────────────────────────────────────────
+
+function ChatsScreen({ onChatSelected }) {
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -1000,57 +1107,82 @@ function HistoryModal({ onClose }) {
   }, []);
 
   return (
-    <View style={[styles.aiOverlay, { backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 200 }]}>
-      <SafeAreaView style={{ flex: 1, justifyContent: 'flex-end' }}>
-        <View style={{ backgroundColor: palette.paper, maxHeight: '75%', borderTopWidth: 3, borderColor: palette.ink }}>
-          <View style={[styles.aiHeader, { borderBottomWidth: 2, borderColor: palette.ink }]}>
-            <Text style={styles.aiHeaderTitle}>PAST CHATS</Text>
-            <Pressable onPress={onClose}><Ico name="close" size={28} /></Pressable>
+    <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+      <View style={{ padding: 24 }}>
+        <Text style={styles.screenTitle}>PAST CHATS</Text>
+        <Text style={styles.screenSubtitle}>Your previous AI Hub conversations</Text>
+
+        {loading && <ActivityIndicator color={palette.ink} style={{ marginTop: 40 }} />}
+
+        {!loading && sessions.length === 0 && (
+          <View style={{ alignItems: 'center', marginTop: 40 }}>
+            <Ico name="forum-outline" size={48} color={palette.mute} />
+            <Text style={{ color: palette.mute, marginTop: 12, textAlign: 'center' }}>
+              No past chats yet.{'\n'}Start a new one in the AI Hub!
+            </Text>
           </View>
-          <ScrollView>
-            {loading ? (
-              <ActivityIndicator color={palette.ink} style={{ margin: 32 }} />
-            ) : sessions.length === 0 ? (
-              <View style={{ padding: 24, alignItems: 'center' }}>
-                <Text style={{ color: palette.mute, fontSize: 14 }}>No past chats yet.</Text>
-              </View>
-            ) : sessions.map(s => (
-              <View key={s.id} style={{ padding: 16, borderBottomWidth: 1, borderColor: palette.kraft }}>
-                <Text style={{ fontWeight: '900', fontSize: 14, color: palette.ink }} numberOfLines={1}>{s.title}</Text>
-                <Text style={{ fontSize: 11, color: palette.mute, marginTop: 2 }}>
-                  {s.message_count} message(s) · {new Date(s.updated_at).toLocaleDateString('en-IN')}
-                </Text>
-              </View>
-            ))}
-          </ScrollView>
-        </View>
-      </SafeAreaView>
-    </View>
+        )}
+
+        {sessions.map(s => (
+          <Pressable 
+            key={s.id} 
+            style={[styles.archiveCard, { flexDirection: 'column', alignItems: 'stretch' }]} 
+            onPress={() => onChatSelected && onChatSelected(s.id)}
+          >
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+              <Text style={styles.archiveTitle} numberOfLines={1}>{s.title}</Text>
+              <Ico name="chevron-right" size={20} color={palette.mute} />
+            </View>
+            <Text style={styles.archiveDate}>
+              {s.message_count} message(s) · {new Date(s.updated_at).toLocaleDateString('en-IN')}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+    </ScrollView>
   );
 }
 
+
 // ─── MAIN APP ────────────────────────────────────────────────
 
-export default function JugaadMobileApp() {
+function MainApp() {
   const [activeTab, setActiveTab] = useState('workshop');
   const [budget, setBudget] = useState(500);
   const [scannedImage, setScannedImage] = useState(null);       // URI for display
   const [scannedImageB64, setScannedImageB64] = useState(null); // base64 for API
   const [aiVisible, setAiVisible] = useState(false);
+  const [aiSessionId, setAiSessionId] = useState(null);
   const [blueprint, setBlueprint] = useState(null);
   const [bazaari, setBazaari] = useState(null);
   const [archiveCard, setArchiveCard] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [showAccount, setShowAccount] = useState(false);
   const [toast, setToast] = useState('');
+  const [user, setUser] = useState(null);
 
   // Boot: ensure a stable device id (quota identity) and restore any
   // Supabase session so the auth token is attached to API calls.
   useEffect(() => {
     getDeviceId().catch(() => {});
-    restoreSession().catch(() => {});
+    restoreSession().then(u => setUser(u)).catch(() => {});
+    
+    if (supabase) {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        setUser(session?.user || null);
+      });
+      return () => subscription?.unsubscribe();
+    }
   }, []);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 2500); };
+
+  const handleLogout = async () => {
+    await signOut();
+    setUser(null);
+    setShowAccount(false);
+    showToast('Logged out successfully');
+  };
 
   const openCamera = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
@@ -1117,9 +1249,14 @@ export default function JugaadMobileApp() {
             openCamera={openCamera}
             openGallery={openGallery}
             scraps={[]}
-            onGenerate={() => setAiVisible(true)}
+            onGenerate={() => { setAiSessionId(null); setAiVisible(true); }}
           />
         );
+      case 'chats':
+        return <ChatsScreen onChatSelected={(id) => {
+          setAiSessionId(id);
+          setAiVisible(true);
+        }} />;
       case 'blueprints':
         return <BlueprintsScreen blueprint={blueprint} />;
       case 'bazaari':
@@ -1140,9 +1277,11 @@ export default function JugaadMobileApp() {
       >
       <View style={styles.root}>
         <View style={styles.header}>
-          <Pressable style={styles.headerIcon}><Ico name="menu" size={28} /></Pressable>
+          <Pressable style={styles.headerIcon} onPress={() => setShowAccount(true)}>
+            <Ico name="account-circle-outline" size={28} />
+          </Pressable>
           <Text style={styles.headerTitle}>JUGAAD {activeTab.toUpperCase()}</Text>
-          <Pressable style={styles.headerIcon} onPress={() => setAiVisible(true)}>
+          <Pressable style={styles.headerIcon} onPress={() => { setAiSessionId(null); setAiVisible(true); }}>
             <Ico name="robot-outline" size={28} />
           </Pressable>
         </View>
@@ -1176,13 +1315,8 @@ export default function JugaadMobileApp() {
           scannedImage={scannedImage}
           scannedImageB64={scannedImageB64}
           onSaveToArchive={handleSaveToArchive}
-          onShowHistory={() => setShowHistory(true)}
+          onShowHistory={() => setActiveTab('chats')}
         />
-
-        {/* History Modal — fetches from DB */}
-        {showHistory && (
-          <HistoryModal onClose={() => setShowHistory(false)} />
-        )}
 
         {archiveCard && (
           <ArchiveModal
@@ -1190,6 +1324,21 @@ export default function JugaadMobileApp() {
             onClose={() => setArchiveCard(null)}
             onBlueprint={handleLoadBlueprint}
             onBazaari={handleLoadBazaari}
+          />
+        )}
+        
+        {showAccount && (
+          <AccountSheet 
+            user={user} 
+            onClose={() => setShowAccount(false)} 
+            onShowLogin={() => {
+              // Re-use the existing LoginSheet via AIHub logic, 
+              // or handle a local showLogin state.
+              // Wait, we don't have local showLogin state in App!
+              // Let's add it or use AIHub's logic. 
+              // Actually, I can just mount LoginSheet right here.
+            }} 
+            onLogout={handleLogout} 
           />
         )}
       </View>
@@ -1249,9 +1398,9 @@ const styles = StyleSheet.create({
   generateLeft: { flexDirection: 'row', alignItems: 'center' },
   generateText: { marginLeft: 12, color: palette.ink, fontSize: 18, fontWeight: '900' },
   footerCaption: { marginTop: 16, textAlign: 'center', color: palette.mute, fontSize: 12, fontStyle: 'italic' },
-  bottomNav: { height: 80, flexDirection: 'row', borderTopWidth: 3, borderTopColor: palette.ink, backgroundColor: palette.paper2 },
+  bottomNav: { position: 'absolute', bottom: 20, left: 20, right: 20, height: 74, flexDirection: 'row', borderRadius: 37, overflow: 'hidden', borderWidth: 2, borderColor: palette.ink, backgroundColor: 'rgba(235, 229, 214, 0.95)' },
   bottomNavItem: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  bottomTile: { width: 40, height: 32, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
+  bottomTile: { width: 44, height: 32, alignItems: 'center', justifyContent: 'center', marginBottom: 2, borderRadius: 16 },
   bottomTileActive: { backgroundColor: palette.yellow, borderWidth: 2, borderColor: palette.ink },
   bottomLabel: { fontSize: 10, fontWeight: '900', color: palette.ink },
   screenTitle: { fontSize: 32, fontWeight: '900', color: palette.ink, marginBottom: 4 },
@@ -1293,17 +1442,20 @@ const styles = StyleSheet.create({
   langChipActive: { backgroundColor: palette.ink },
   langChipText: { fontSize: 12, fontWeight: '900', color: palette.ink },
   langChipTextActive: { color: palette.white },
-  msgBubble: { maxWidth: '85%', padding: 12, borderRadius: 4, marginBottom: 12 },
-  userBubble: { alignSelf: 'flex-end', backgroundColor: palette.ink },
-  assistantBubble: { alignSelf: 'flex-start', backgroundColor: palette.white, borderWidth: 1.5, borderColor: palette.ink },
-  msgText: { fontSize: 15, lineHeight: 22 },
-  userMsgText: { color: palette.white },
-  assistantMsgText: { color: palette.ink },
+  msgBubble: { maxWidth: '85%', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12, marginBottom: 12 },
+  userBubble: { alignSelf: 'flex-end', backgroundColor: palette.ink, borderBottomRightRadius: 2 },
+  assistantBubble: { alignSelf: 'flex-start', backgroundColor: palette.card, borderWidth: 1.5, borderColor: palette.kraftDeep, borderBottomLeftRadius: 2 },
+  msgText: { fontSize: 14, lineHeight: 22 },
+  userMsgText: { color: palette.paper },
+  assistantMsgText: { color: palette.graphite },
   inputContainer: { backgroundColor: palette.paper, padding: 12, borderTopWidth: 1, borderColor: palette.grid },
   inputWrapper: { flexDirection: 'row', backgroundColor: palette.white, borderWidth: 2, borderColor: palette.ink, borderRadius: 4, paddingHorizontal: 16, paddingVertical: 8, alignItems: 'center' },
   chatInput: { flex: 1, fontSize: 16, maxHeight: 100, color: palette.ink },
   sendBtn: { width: 40, height: 40, backgroundColor: palette.yellow, borderRadius: 4, alignItems: 'center', justifyContent: 'center', marginLeft: 8 },
-  solutionCard: { backgroundColor: palette.card, borderWidth: 2.5, borderColor: palette.ink, padding: 14, marginBottom: 4 },
+  solutionCard: { backgroundColor: palette.card, borderWidth: 2, borderColor: palette.ink, borderRadius: 12, borderBottomLeftRadius: 2, overflow: 'hidden', marginBottom: 12, borderRightWidth: 3, borderBottomWidth: 3 },
+  solutionHeaderTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: palette.yellow, paddingVertical: 10, paddingHorizontal: 16, borderBottomWidth: 2, borderColor: palette.ink },
+  solutionHeaderTopText: { fontSize: 11, fontWeight: '700', letterSpacing: 1, color: palette.ink },
+  solutionHeaderTopCost: { fontSize: 11, fontWeight: '400', color: palette.graphite },
   solutionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 },
   solutionTitle: { fontSize: 16, fontWeight: '900', color: palette.ink, flex: 1, marginRight: 8 },
   solutionSummary: { fontSize: 13, color: palette.graphite, lineHeight: 18, marginBottom: 10 },
@@ -1316,7 +1468,16 @@ const styles = StyleSheet.create({
   costBadgeText: { fontSize: 11, fontWeight: '900', color: palette.ink },
   expandBtn: { paddingVertical: 8, alignItems: 'center' },
   expandBtnText: { fontSize: 12, color: palette.mute, fontWeight: '700' },
-  solutionActions: { flexDirection: 'row', gap: 8, borderTopWidth: 1, borderColor: 'rgba(0,0,0,0.1)', paddingTop: 10, marginTop: 4 },
-  actionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: palette.yellow, borderWidth: 2, borderColor: palette.ink, paddingVertical: 8 },
-  actionBtnText: { fontSize: 12, fontWeight: '900', color: palette.ink },
+  solutionActions: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', borderTopWidth: 1, borderColor: 'rgba(0,0,0,0.1)', paddingTop: 12, marginTop: 4 },
+  actionBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: palette.yellow, borderWidth: 1.5, borderColor: palette.ink, paddingVertical: 6, paddingHorizontal: 12 },
+  actionBtnText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5, color: palette.ink },
 });
+
+export default function JugaadMobileApp() {
+  return (
+    <SafeAreaProvider>
+      <MainApp />
+    </SafeAreaProvider>
+  );
+}
+
