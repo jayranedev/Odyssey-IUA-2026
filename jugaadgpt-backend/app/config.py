@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     supabase_jwt_secret: str = "w///8Ahp/zN21YvvttwZ/lPjGOor7RxLD9MQ0cZuGQWJIskc9pn9EMF1+a9bxbsT3ZvVTXHYq/fmNk+YPG6x4Q=="
 
     # Daily generation quotas (generator runs only — clarifying turns don't count)
-    free_daily_quota: int = 5     # anonymous, per device-id / per IP
+    free_daily_quota: int = 15    # temporary increase from 5 for testing
     auth_daily_quota: int = 999999  # logged-in, unlimited access
     wa_daily_quota: int = 5       # WhatsApp, per phone number
 
