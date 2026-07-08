@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     # Supabase Auth (backend only verifies the JWT — Supabase DB is not used)
     supabase_url: str = "https://zklugwmytddbotpvoqov.supabase.co"
     supabase_anon_key: str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InprbHVnd215dGRkYm90cHZvcW92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0MTcxMDcsImV4cCI6MjA5ODk5MzEwN30.rjSccMIOqnQju0jzpk29kemWHnHmOYXbHSMcpB92UUA"
-    supabase_jwt_secret: str = "w///8Ahp/zN21YvvttwZ/lPjGOor7RxLD9MQ0cZuGQWJIskc9pn9EMF1+a9bxbsT3ZvVTXHYq/fmNk+YPG6x4Q=="
+    supabase_jwt_secret: str = ""
 
     # Daily generation quotas (generator runs only — clarifying turns don't count)
     free_daily_quota: int = 15    # temporary increase from 5 for testing
