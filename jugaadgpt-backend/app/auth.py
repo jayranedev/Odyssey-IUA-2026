@@ -26,17 +26,15 @@ class AuthUser:
         self.email = email
 
 
-def _decode_token(token: str) -> AuthUser | None:
+def _decode_token(token: str) -> AuthUser | tuple[None, str]:
     if not settings.supabase_jwt_secret:
-        return None
+        return None, "No secret configured"
     try:
         secret = settings.supabase_jwt_secret.strip()
         if "-" not in secret and "_" not in secret and (secret.endswith("=") or len(secret) % 4 == 0):
             try:
                 import base64
-                # Some Supabase secrets are base64 encoded
                 decoded = base64.b64decode(secret)
-                # Verify it decodes cleanly (won't if it's just a random string that happens to be len%4=0)
                 if base64.b64encode(decoded).decode('utf-8') == secret:
                     secret = decoded
             except Exception:
@@ -50,15 +48,15 @@ def _decode_token(token: str) -> AuthUser | None:
         )
     except JWTError as e:
         logger.error("JWT rejected: %s (Secret length: %d)", e, len(secret) if secret else 0)
-        return None
+        return None, f"JWT Error: {str(e)}"
     except Exception as e:
         logger.error("Unexpected error in JWT decoding: %s", e)
-        return None
+        return None, f"Unexpected error: {str(e)}"
         
     sub = payload.get("sub")
     if not sub:
         logger.error("JWT missing 'sub' claim")
-        return None
+        return None, "JWT missing 'sub' claim"
     return AuthUser(id=sub, email=payload.get("email", "") or "")
 
 
@@ -84,8 +82,15 @@ async def _upsert_user(user: AuthUser) -> None:
 async def get_current_user_optional(request: Request) -> AuthUser | None:
     auth = request.headers.get("Authorization", "")
     if not auth.startswith("Bearer "):
+        request.state.auth_error = "No Bearer token found"
         return None
-    user = _decode_token(auth[7:].strip())
+    
+    result = _decode_token(auth[7:].strip())
+    if isinstance(result, tuple):
+        request.state.auth_error = result[1]
+        return None
+        
+    user = result
     if user:
         await _upsert_user(user)
     return user
@@ -94,7 +99,8 @@ async def get_current_user_optional(request: Request) -> AuthUser | None:
 async def get_current_user_required(request: Request) -> AuthUser:
     user = await get_current_user_optional(request)
     if user is None:
-        raise HTTPException(status_code=401, detail="Authentication required")
+        reason = getattr(request.state, "auth_error", "Authentication required")
+        raise HTTPException(status_code=401, detail=reason)
     return user
 
 
