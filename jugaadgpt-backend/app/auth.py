@@ -43,7 +43,7 @@ def _decode_token(token: str) -> AuthUser | tuple[None, str]:
         payload = jwt.decode(
             token,
             secret,
-            algorithms=["HS256"],
+            algorithms=["HS256", "HS384", "HS512"],
             audience="authenticated",
         )
     except JWTError as e:
