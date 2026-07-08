@@ -119,16 +119,18 @@ const StatusBubble = ({ text }) => (
   </div>
 );
 
-const StreamingBubble = ({ text }) => (
+const StreamingBubble = () => (
   <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
     <div style={{
       background: 'var(--jg2-card)', border: '1.5px solid var(--jg2-kraft)',
       padding: '14px 18px', borderRadius: '12px 12px 12px 2px',
       maxWidth: '82%', fontSize: 13.5, lineHeight: 1.7,
-      fontFamily: 'JetBrains Mono, monospace', whiteSpace: 'pre-wrap', color: 'var(--jg2-graphite)',
+      fontFamily: 'JetBrains Mono, monospace', color: 'var(--jg2-graphite)',
     }}>
-      {text}
-      <span style={{ display: 'inline-block', width: 2, height: '1em', background: 'var(--jg2-ink)', marginLeft: 2, verticalAlign: 'text-bottom', animation: 'jg-blink 0.8s step-end infinite' }} />
+      <span style={{ color: 'var(--jg2-mute)', fontStyle: 'italic' }}>Drafting blueprint</span>
+      <span style={{ display: 'inline-block', width: 4, height: 4, borderRadius: '50%', background: 'var(--jg2-ink)', marginLeft: 8, animation: 'jg-blink 0.8s infinite' }} />
+      <span style={{ display: 'inline-block', width: 4, height: 4, borderRadius: '50%', background: 'var(--jg2-ink)', marginLeft: 4, animation: 'jg-blink 0.8s infinite 0.2s' }} />
+      <span style={{ display: 'inline-block', width: 4, height: 4, borderRadius: '50%', background: 'var(--jg2-ink)', marginLeft: 4, animation: 'jg-blink 0.8s infinite 0.4s' }} />
     </div>
   </div>
 );
@@ -517,12 +519,15 @@ export const ChatScreen = () => {
         const blocks = raw.split('\n\n');
         for (const block of blocks) {
           const lines = block.split('\n');
-          let eventType = '', dataLine = '';
+          let eventType = '';
+          const dataLines = [];
           for (const l of lines) {
             if (l.startsWith('event: ')) eventType = l.slice(7).trim();
-            else if (l.startsWith('data: ')) dataLine = l.slice(6).trim();
+            else if (l.startsWith('data: ')) dataLines.push(l.slice(6));
           }
-          if (!eventType || !dataLine) continue;
+          if (!eventType || dataLines.length === 0) continue;
+          
+          const dataLine = dataLines.join('\n');
 
           if (eventType === 'status') {
             pushMsg({ type: 'status', text: dataLine });
