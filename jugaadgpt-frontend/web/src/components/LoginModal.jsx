@@ -1,38 +1,67 @@
 'use client';
 import React, { useState } from 'react';
-import { X, Mail } from 'lucide-react';
+import { X, Mail, KeyRound, UserPlus } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
-// Login modal — email OTP, styled to the JugaadGPT
+// Login modal — email OTP & Password, styled to the JugaadGPT
 // paper/ink/yellow design language (same tokens as the chat UI).
 
 const LoginModal = () => {
-  const { loginOpen, closeLogin, sendOtp, verifyOtp, authEnabled } = useAuth();
-  const [step, setStep] = useState('start'); // start | code
+  const { loginOpen, closeLogin, sendOtp, signInWithPassword, signUpWithPassword, authEnabled } = useAuth();
+  const [step, setStep] = useState('start'); // start | password-login | password-signup | magic-link-sent
   const [email, setEmail] = useState('');
-  const [code, setCode] = useState('');
+  const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
   if (!loginOpen) return null;
 
-  const handleSendOtp = async () => {
+  const handleSendMagicLink = async () => {
     if (!email.trim()) return;
     setBusy(true); setError('');
     const { error: err } = await sendOtp(email.trim());
     setBusy(false);
     if (err) { setError(err.message); return; }
-    setStep('code');
+    setStep('magic-link-sent');
   };
 
-  const handleVerify = async () => {
-    if (!code.trim()) return;
+  const handlePasswordLogin = async () => {
+    if (!email.trim() || !password.trim()) return;
     setBusy(true); setError('');
-    const { error: err } = await verifyOtp(email.trim(), code.trim());
+    const { error: err } = await signInWithPassword(email.trim(), password);
     setBusy(false);
     if (err) { setError(err.message); return; }
-    // onAuthStateChange in AuthContext closes the modal + claims sessions
+    // onAuthStateChange handles closing modal
   };
+
+  const handlePasswordSignup = async () => {
+    if (!email.trim() || !password.trim()) return;
+    if (password.length < 6) { setError('Password must be at least 6 characters'); return; }
+    setBusy(true); setError('');
+    const { error: err } = await signUpWithPassword(email.trim(), password);
+    setBusy(false);
+    if (err) { 
+      setError(err.message); 
+      return; 
+    }
+    // Signup successful. Some Supabase configs require email verification.
+    setError('Signup successful! If you are not automatically logged in, check your email for a verification link.');
+  };
+
+  const renderInput = (type, value, onChange, placeholder, onEnter) => (
+    <input
+      type={type}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      onKeyDown={(e) => e.key === 'Enter' && onEnter?.()}
+      placeholder={placeholder}
+      style={{
+        width: '100%', boxSizing: 'border-box', padding: '9px 12px',
+        border: '1.5px solid var(--jg2-ink)', fontSize: 14, marginBottom: 10,
+        fontFamily: 'inherit', background: 'var(--jg2-paper)',
+      }}
+    />
+  );
 
   return (
     <div
@@ -76,56 +105,54 @@ const LoginModal = () => {
 
         {authEnabled && step === 'start' && (
           <>
-            <div style={{ display: 'inline-flex', padding: '4px 8px', marginBottom: 12, border: '1px dashed var(--jg2-kraft-deep)', fontSize: 11, fontFamily: 'JetBrains Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--jg2-mute)' }}>
-              Email login only
-            </div>
-
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSendOtp()}
-              placeholder="you@example.com"
-              style={{
-                width: '100%', boxSizing: 'border-box', padding: '9px 12px',
-                border: '1.5px solid var(--jg2-ink)', fontSize: 14, marginBottom: 10,
-                fontFamily: 'inherit', background: 'var(--jg2-paper)',
-              }}
-            />
-            <button
-              className="jg2-btn-yellow"
-              style={{ width: '100%', display: 'inline-flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}
-              onClick={handleSendOtp}
-              disabled={busy}
-            >
-              <Mail size={14} /> {busy ? 'Sending…' : 'Send magic link'}
+            {renderInput('email', email, setEmail, 'you@example.com')}
+            
+            <button className="jg2-btn-yellow" style={{ width: '100%', marginBottom: 10, display: 'flex', justifyContent: 'center', gap: 8 }} onClick={() => setStep('password-login')} disabled={!email.trim()}>
+              <KeyRound size={16} /> Log in with Password
+            </button>
+            <button className="jg2-btn" style={{ width: '100%', marginBottom: 10, display: 'flex', justifyContent: 'center', gap: 8, background: 'var(--jg2-paper)' }} onClick={() => setStep('password-signup')} disabled={!email.trim()}>
+              <UserPlus size={16} /> Create an Account
+            </button>
+            <button className="jg2-btn" style={{ width: '100%', display: 'flex', justifyContent: 'center', gap: 8, background: 'var(--jg2-paper)' }} onClick={handleSendMagicLink} disabled={busy || !email.trim()}>
+              <Mail size={16} /> {busy ? 'Sending…' : 'Send Magic Link'}
             </button>
           </>
         )}
 
-        {authEnabled && step === 'code' && (
+        {authEnabled && (step === 'password-login' || step === 'password-signup') && (
+          <>
+            {renderInput('email', email, setEmail, 'you@example.com')}
+            {renderInput('password', password, setPassword, 'Enter password', step === 'password-login' ? handlePasswordLogin : handlePasswordSignup)}
+            
+            <button 
+              className="jg2-btn-yellow" 
+              style={{ width: '100%', marginBottom: 10 }} 
+              onClick={step === 'password-login' ? handlePasswordLogin : handlePasswordSignup} 
+              disabled={busy}
+            >
+              {busy ? 'Please wait...' : step === 'password-login' ? 'Log in' : 'Sign up'}
+            </button>
+            
+            <button onClick={() => setStep('start')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--jg2-graphite)', textDecoration: 'underline' }}>
+              Back to options
+            </button>
+          </>
+        )}
+
+        {authEnabled && step === 'magic-link-sent' && (
           <>
             <p style={{ fontSize: 13, color: 'var(--jg2-graphite)', marginBottom: 10, lineHeight: 1.5 }}>
               We sent a secure magic link to <strong>{email}</strong>. 
               Check your inbox and click the link to log in!
             </p>
-            <div style={{ padding: 12, background: 'var(--jg2-kraft-light)', borderRadius: 6, fontSize: 12, color: 'var(--jg2-ink)', marginBottom: 10, lineHeight: 1.5, fontFamily: 'JetBrains Mono, monospace' }}>
-              You can close this window. The magic link will automatically log you in.
-            </div>
-            <button
-              onClick={() => { setStep('start'); }}
-              style={{
-                background: 'none', border: 'none', cursor: 'pointer', marginTop: 10,
-                fontSize: 12, color: 'var(--jg2-graphite)', textDecoration: 'underline',
-              }}
-            >
-              Use a different email
+            <button onClick={() => setStep('start')} style={{ background: 'none', border: 'none', cursor: 'pointer', marginTop: 10, fontSize: 12, color: 'var(--jg2-graphite)', textDecoration: 'underline' }}>
+              Back
             </button>
           </>
         )}
 
         {error && (
-          <p style={{ fontSize: 12, color: 'var(--jg2-brick)', marginTop: 10 }}>{error}</p>
+          <p style={{ fontSize: 12, color: error.includes('successful') ? 'var(--jg2-ink)' : 'var(--jg2-brick)', marginTop: 10 }}>{error}</p>
         )}
       </div>
     </div>

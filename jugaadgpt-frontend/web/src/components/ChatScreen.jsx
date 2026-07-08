@@ -447,6 +447,12 @@ export const ChatScreen = () => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  useEffect(() => {
+    if (searchParams?.get('history') === 'true') {
+      setShowSessions(true);
+    }
+  }, [searchParams]);
+
   // Auto-save session after each message
   useEffect(() => {
     if (messages.length) persistSession(sessionId, messages);

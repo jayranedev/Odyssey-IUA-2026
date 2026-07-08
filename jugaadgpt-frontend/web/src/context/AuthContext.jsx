@@ -13,6 +13,8 @@ const AuthContext = createContext({
   signInWithGoogle: async () => {},
   sendOtp: async () => {},
   verifyOtp: async () => {},
+  signInWithPassword: async () => {},
+  signUpWithPassword: async () => {},
   signOut: async () => {},
 });
 
@@ -95,6 +97,16 @@ export function AuthProvider({ children }) {
     return supabase.auth.verifyOtp({ email, token, type: 'email' });
   }, []);
 
+  const signInWithPassword = useCallback(async (email, password) => {
+    if (!authEnabled) return { error: { message: 'Auth not configured' } };
+    return supabase.auth.signInWithPassword({ email, password });
+  }, []);
+
+  const signUpWithPassword = useCallback(async (email, password) => {
+    if (!authEnabled) return { error: { message: 'Auth not configured' } };
+    return supabase.auth.signUp({ email, password });
+  }, []);
+
   const signOut = useCallback(async () => {
     if (!authEnabled) return;
     await supabase.auth.signOut();
@@ -112,6 +124,8 @@ export function AuthProvider({ children }) {
         signInWithGoogle,
         sendOtp,
         verifyOtp,
+        signInWithPassword,
+        signUpWithPassword,
         signOut,
       }}
     >
