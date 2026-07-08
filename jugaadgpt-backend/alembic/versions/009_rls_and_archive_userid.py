@@ -59,59 +59,59 @@ def upgrade() -> None:
     # -- users: read/update own row only
     op.execute("""
         CREATE POLICY users_own_access ON users
-        FOR ALL USING (auth.uid() = id)
-        WITH CHECK (auth.uid() = id)
+        FOR ALL USING (auth.uid()::text = id)
+        WITH CHECK (auth.uid()::text = id)
     """)
 
     # -- chat_sessions: owner access by user_id; device_id sessions are
     #    handled by the backend (anonymous users don't use Supabase client)
     op.execute("""
         CREATE POLICY sessions_owner_access ON chat_sessions
-        FOR ALL USING (auth.uid() = user_id)
-        WITH CHECK (auth.uid() = user_id)
+        FOR ALL USING (auth.uid()::text = user_id)
+        WITH CHECK (auth.uid()::text = user_id)
     """)
 
     # -- chat_messages: access via session ownership
     op.execute("""
         CREATE POLICY messages_via_session ON chat_messages
         FOR ALL USING (
-            session_id IN (SELECT id FROM chat_sessions WHERE user_id = auth.uid())
+            session_id IN (SELECT id FROM chat_sessions WHERE user_id = auth.uid()::text)
         )
         WITH CHECK (
-            session_id IN (SELECT id FROM chat_sessions WHERE user_id = auth.uid())
+            session_id IN (SELECT id FROM chat_sessions WHERE user_id = auth.uid()::text)
         )
     """)
 
     # -- archive_cards: owner access by user_id
     op.execute("""
         CREATE POLICY archive_owner_access ON archive_cards
-        FOR ALL USING (auth.uid() = user_id)
-        WITH CHECK (auth.uid() = user_id)
+        FOR ALL USING (auth.uid()::text = user_id)
+        WITH CHECK (auth.uid()::text = user_id)
     """)
 
     # -- blueprints: access via session ownership
     op.execute("""
         CREATE POLICY blueprints_via_session ON blueprints
         FOR ALL USING (
-            session_id IN (SELECT id FROM chat_sessions WHERE user_id = auth.uid())
+            session_id IN (SELECT id FROM chat_sessions WHERE user_id = auth.uid()::text)
         )
         WITH CHECK (
-            session_id IN (SELECT id FROM chat_sessions WHERE user_id = auth.uid())
+            session_id IN (SELECT id FROM chat_sessions WHERE user_id = auth.uid()::text)
         )
     """)
 
     # -- query_logs: owner access
     op.execute("""
         CREATE POLICY query_logs_owner ON query_logs
-        FOR ALL USING (auth.uid() = user_id)
-        WITH CHECK (auth.uid() = user_id)
+        FOR ALL USING (auth.uid()::text = user_id)
+        WITH CHECK (auth.uid()::text = user_id)
     """)
 
     # -- feedback: owner access
     op.execute("""
         CREATE POLICY feedback_owner ON feedback
-        FOR ALL USING (auth.uid() = user_id)
-        WITH CHECK (auth.uid() = user_id)
+        FOR ALL USING (auth.uid()::text = user_id)
+        WITH CHECK (auth.uid()::text = user_id)
     """)
 
     # -- jugaad_cases: public read (reference data)
