@@ -72,13 +72,14 @@ const BackendOfflineModal = () => {
       <div
         className="jg2-bg-card"
         style={{
+          background: 'var(--jg2-card, #FFFFFF)',
           maxWidth: 460,
           width: '100%',
           padding: 28,
           position: 'relative',
           maxHeight: '90vh',
           overflowY: 'auto',
-          border: '2px solid var(--jg2-ink)',
+          border: '2px solid var(--jg2-ink, #000000)',
           boxShadow: '6px 6px 0px 0px rgba(0, 0, 0, 1)'
         }}
         onClick={(e) => e.stopPropagation()}

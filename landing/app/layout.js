@@ -1,4 +1,4 @@
-import { Inter, JetBrains_Mono } from 'next/font/google';
+﻿import { Inter, JetBrains_Mono } from 'next/font/google';
 
 import './globals.css';
 import { site } from '../lib/site';
@@ -22,7 +22,7 @@ export const metadata = {
   metadataBase: new URL(site.siteUrl),
   title: 'JugaadGPT — AI jugaad solutions for real Indian constraints',
   description:
-    'Tell JugaadGPT your problem, budget in ₹, and what\'s lying around — get a buildable fix with a rupee bill-of-materials.',
+    'Tell JugaadGPT your problem, budget in ₹1, and what\'s lying around — get a buildable fix with a rupee bill-of-materials.',
   alternates: {
     canonical: '/',
   },
@@ -31,7 +31,7 @@ export const metadata = {
     siteName: 'JugaadGPT',
     title: 'JugaadGPT — AI jugaad solutions for real Indian constraints',
     description:
-      '₹-budget builds grounded in real Indian jugaad. Practical, buildable, and constraint-first.',
+      '₹1-budget builds grounded in real Indian jugaad. Practical, buildable, and constraint-first.',
     url: site.siteUrl,
     images: [
       {
@@ -46,7 +46,7 @@ export const metadata = {
     card: 'summary_large_image',
     title: 'JugaadGPT — AI jugaad solutions for real Indian constraints',
     description:
-      '₹-budget builds grounded in real Indian jugaad. Practical, buildable, and constraint-first.',
+      '₹1-budget builds grounded in real Indian jugaad. Practical, buildable, and constraint-first.',
     images: [new URL(site.ogImage, site.siteUrl).toString()],
   },
   icons: {
@@ -63,7 +63,6 @@ export const viewport = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
-      <body>{children}</body>
       <body>
         <BackendStatusProvider>
           <BackendOfflineBanner />

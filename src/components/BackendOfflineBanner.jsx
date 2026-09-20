@@ -76,16 +76,15 @@ const BackendOfflineBanner = () => {
       {/* Message text */}
       <span
         style={{
-          fontSize: 12,
-          color: 'var(--jg2-graphite)',
+          fontSize: 14,
+          fontWeight: 600,
+          color: 'var(--jg2-ink)',
           fontFamily: 'Inter, system-ui, sans-serif',
-          lineHeight: 1.4,
+          lineHeight: 1.5,
           textAlign: 'center',
         }}
       >
-        JugaadGPT AI is currently offline. The backend has been taken offline to
-        avoid hosting costs. You can still explore the complete frontend and
-        project experience.
+        JugaadGPT AI is currently offline. The backend has been taken offline to avoid hosting costs. You can still explore the complete frontend and project experience.
       </span>
 
       {/* Close button */}
