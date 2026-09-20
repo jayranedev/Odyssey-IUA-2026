@@ -4,12 +4,12 @@ import { useBackendStatus } from '../context/BackendStatusContext';
 /**
  * BackendOfflineModal
  * ───────────────────
- * A centered explanatory modal that appears ~5 seconds after page load
+ * A centered explanatory modal that appears ~3 seconds after page load
  * when the backend is confirmed offline.
  *
  * Behavior:
  *   - Only appears when isOnline === false
- *   - Waits 5 seconds after the offline state is confirmed before showing
+ *   - Waits 3 seconds after the offline state is confirmed before showing
  *   - Does NOT show if:
  *       • Backend comes online before the timer fires
  *       • Already dismissed this session (sessionStorage flag)
@@ -30,7 +30,7 @@ const BackendOfflineModal = () => {
   const [visible, setVisible] = useState(false);
   const primaryBtnRef = useRef(null);
 
-  // Timer logic: show modal after ~5 seconds if offline and not previously dismissed
+  // Timer logic: show modal after ~3 seconds if offline and not previously dismissed
   useEffect(() => {
     // Don't show if backend is online or status unknown yet
     if (isOnline !== false) return;
@@ -41,7 +41,7 @@ const BackendOfflineModal = () => {
     const timerId = setTimeout(() => {
       // Double-check: only show if still relevant when timer fires
       setVisible(true);
-    }, 5_000); // 5-second delay
+    }, 3_000); // 3-second delay
 
     return () => clearTimeout(timerId);
   }, [isOnline]);

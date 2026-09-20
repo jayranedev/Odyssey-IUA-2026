@@ -16,7 +16,7 @@ const BackendOfflineModal = () => {
 
     const timerId = setTimeout(() => {
       setVisible(true);
-    }, 5_000);
+    }, 3_000);
 
     return () => clearTimeout(timerId);
   }, [isOnline]);
