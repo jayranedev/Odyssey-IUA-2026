@@ -1,4 +1,4 @@
-import { site, teamMembers } from '../lib/site';
+﻿import { site, teamMembers } from '../lib/site';
 
 const structuredData = {
   '@context': 'https://schema.org',
@@ -27,110 +27,101 @@ const structuredData = {
   ],
 };
 
-  function TeamCard({ member }) {
-    const socialLinks = [
-      ['github', member.github],
-      ['portfolio', member.portfolio],
-      ['linkedin', member.linkedin],
-      ['x', member.x],
-    ].filter(([, href]) => href);
-  
-    return (
-      <article className="team-card">
-        <div className="team-photo-wrap">
-          <img className="team-photo" src={member.photo} alt={member.name} loading="lazy" />
-        </div>
-        <div className="team-copy">
-          <h3>{member.name}</h3>
-          <p>{member.role}</p>
-        </div>
-        <div className="team-links" aria-label={`${member.name} social links`}>
-          {socialLinks.map(([label, href]) => (
-            <a key={label} href={href} target="_blank" rel="noreferrer" className="team-link" aria-label={`${label} link`}>
-              {label === 'github' ? 'GH' : label === 'portfolio' ? 'Web' : label === 'linkedin' ? 'in' : '𝕏'}
-            </a>
-          ))}
-        </div>
-      </article>
-    );
-  }
+function TeamCard({ member }) {
+  const socialLinks = [
+    ['github', member.github],
+    ['portfolio', member.portfolio],
+    ['linkedin', member.linkedin],
+    ['x', member.x],
+  ].filter(([, href]) => href);
+
+  return (
+    <article className="team-card">
+      <div className="team-photo-wrap">
+        <img className="team-photo" src={member.photo} alt={member.name} loading="lazy" />
+      </div>
+      <div className="team-copy">
+        <h3>{member.name}</h3>
+        <p>{member.role}</p>
+      </div>
+      <div className="team-links" aria-label={`${member.name} social links`}>
+        {socialLinks.map(([label, href]) => (
+          <a key={label} href={href} target="_blank" rel="noreferrer" className="team-link" aria-label={`${label} link`}>
+            {label === 'github' ? 'GH' : label === 'portfolio' ? 'Web' : label === 'linkedin' ? 'in' : '𝕏'}
+          </a>
+        ))}
+      </div>
+    </article>
+  );
+}
 
 export default function Page() {
   return (
     <main className="site-shell">
-      <div className="ambient ambient-left" />
-      <div className="ambient ambient-right" />
-
-      <header className="topbar">
-        <div className="brand-mark">JUGAAD GPT</div>
-        <a href={site.appUrl} className="button button-primary">
-          Open App
-        </a>
-      </header>
-
-      <section className="hero">
-        <p className="eyebrow">Constraint-first AI</p>
-        <h1>
-          AI jugaad solutions for
-          <span>real Indian constraints</span>
+      <header className="hero">
+        <h1 className="hero-title">
+          Tell JugaadGPT your problem,
+          <br />
+          budget in ₹, and what&apos;s lying around.
         </h1>
-        <p className="lede">
-          Tell it your problem, your budget in rupees, and what&apos;s lying around. Get one specific,
-          buildable fix, with a ₹ bill-of-materials, build steps, and honest failure modes.
+        <p className="hero-subtitle">
+          Get a buildable fix with a rupee bill-of-materials.
+          <br />
+          Ground zero for real Indian constraint-first engineering.
         </p>
 
-        <div className="prompt-card">
-          <div className="prompt-label">Try this prompt</div>
-          <p className="prompt-text">
-            &quot;I have <span>₹500</span>, <span>no electricity</span>, and vegetables rotting in my shop in{' '}
-            <span>Rajasthan</span>.&quot;
-          </p>
-          <div className="prompt-result">
-            → Zeer-pot evaporative cooler: 2 clay matkas, sand, jute sack — <strong>₹380 total</strong>,
-            drops veggie temp ~10°C. No power needed.
-          </div>
-          <a href={`${site.appUrl}/chat`} className="button button-secondary prompt-button">
-            Ask it yourself — free →
+        <div className="hero-actions">
+          <a href={site.appUrl} className="button button-primary">
+            Open Workshop UI
           </a>
         </div>
-      </section>
+      </header>
 
-      <section className="section" aria-labelledby="get-it">
-        <h2 id="get-it" className="section-title">
-          Use it anywhere
+      <section className="section section-platform" aria-labelledby="platform">
+        <h2 id="platform" className="section-title">
+          Three ways to build
         </h2>
-        <div className="feature-grid">
-          <article className="feature-card">
-            <div className="feature-icon" aria-hidden="true">
-              🌐
+        <div className="platform-grid">
+          <article className="platform-card">
+            <div className="platform-icon">
+              <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+                <line x1="8" y1="21" x2="16" y2="21" />
+                <line x1="12" y1="17" x2="12" y2="21" />
+              </svg>
             </div>
-            <h3>Try in Browser</h3>
-            <p>
-              The full workshop: chat, photo-of-materials scanning, blueprints, and the jugaad archive.
-              5 free jugaads a day — log in for 25.
-            </p>
+            <h3>Web App</h3>
+            <p>The main workshop interface. Log problems, scan items, and generate constraint-bound blueprints.</p>
             <a href={site.appUrl} className="button button-secondary">
-              Open web app
+              Launch App
             </a>
           </article>
-
-          <article className="feature-card feature-card-highlight" id="android-card">
-            <div className="feature-icon" aria-hidden="true">
-              🤖
+          <article className="platform-card">
+            <div className="platform-icon">
+              <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
+                <line x1="12" y1="18" x2="12.01" y2="18" />
+              </svg>
             </div>
-            <h3>Android App</h3>
+            <h3>Android APK</h3>
             <p>
-              Native app with voice input, camera scrap-scanning, and offline blueprint viewing. Direct APK
-              — no Play Store needed.
+              Take the workshop to the field. Native performance and offline-first capabilities for scanning parts
+              anywhere.
             </p>
             <a href={site.apkUrl} className="button button-secondary">
-              Download APK
+              Download .apk
             </a>
           </article>
-
-          <article className="feature-card">
-            <div className="feature-icon" aria-hidden="true">
-              🧩
+          <article className="platform-card">
+            <div className="platform-icon">
+              <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                <polyline points="7.5 4.21 12 6.81 16.5 4.21" />
+                <polyline points="7.5 19.79 7.5 14.6 3 12" />
+                <polyline points="21 12 16.5 14.6 16.5 19.79" />
+                <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                <line x1="12" y1="22.08" x2="12" y2="12" />
+              </svg>
             </div>
             <h3>Browser Extension</h3>
             <p>
@@ -141,7 +132,7 @@ export default function Page() {
               <li>Download &amp; unzip the extension</li>
               <li>Open <span>chrome://extensions</span></li>
               <li>Enable <strong>Developer mode</strong></li>
-              <li>Click <strong>Load unpacked</strong> → select the folder</li>
+              <li>Click <strong>Load unpacked</strong> &rarr; select the folder</li>
             </ol>
             <a href={site.extensionZipUrl} className="button button-secondary">
               Download .zip
@@ -194,7 +185,7 @@ export default function Page() {
         <a href={site.githubUrl} className="footer-link" target="_blank" rel="noreferrer">
           GitHub — source, APK releases &amp; extension zip
         </a>
-        <p>JugaadGPT · zero paid APIs · made with scrap and stubbornness</p>
+        <p>JugaadGPT ✦ zero paid APIs ✦ made with scrap and stubbornness</p>
       </footer>
 
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
