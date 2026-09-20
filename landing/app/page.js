@@ -1,4 +1,4 @@
-﻿import { site, teamMembers } from '../lib/site';
+import { site, teamMembers } from '../lib/site';
 
 const structuredData = {
   '@context': 'https://schema.org',
@@ -81,17 +81,18 @@ function TeamCard({ member }) {
     if (label === 'portfolio') {
       try {
         const domain = new URL(href).hostname;
+        const proxyUrl = `/api/favicon?domain=${domain}`;
         return (
           <div 
             style={{ 
               width: 20, 
               height: 20, 
               backgroundColor: 'currentColor', 
-              WebkitMaskImage: `url(https://www.google.com/s2/favicons?domain=${domain}&sz=64)`,
+              WebkitMaskImage: `url(${proxyUrl})`,
               WebkitMaskSize: 'contain',
               WebkitMaskRepeat: 'no-repeat',
               WebkitMaskPosition: 'center',
-              maskImage: `url(https://www.google.com/s2/favicons?domain=${domain}&sz=64)`,
+              maskImage: `url(${proxyUrl})`,
               maskSize: 'contain',
               maskRepeat: 'no-repeat',
               maskPosition: 'center'
