@@ -1,3 +1,7 @@
+# JugaadGPT Web Frontend
+
+> **⚠️ Status Update:** The AI backend for JugaadGPT has been taken offline to avoid hosting costs. The frontend is fully explorable, but AI responses are temporarily disabled.
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
 
 ## Getting Started

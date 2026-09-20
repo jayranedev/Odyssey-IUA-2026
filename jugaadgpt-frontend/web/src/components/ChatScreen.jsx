@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { AppShell } from './AppShell';
 import { authHeaders } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useBackendStatus } from '../context/BackendStatusContext';
 
 const API_BASE = 'https://odyssey-iua-2026-1.onrender.com';
 const WORKSHOP_KEY = 'jg_workshop_draft';
@@ -379,6 +380,7 @@ function mirrorToBackend(sessionId, title, lang, role, type, content) {
 export const ChatScreen = () => {
   const searchParams = useSearchParams();
   const { user, sessionVersion, signOut, openLogin } = useAuth();
+  const { isOnline } = useBackendStatus();
   const [sessionId, setSessionId] = useState(() => {
     const queryId = searchParams?.get('session_id');
     if (queryId) {
@@ -587,18 +589,32 @@ export const ChatScreen = () => {
       }
       if (buffer.trim()) flush(buffer);
     } catch (err) {
-      pushMsg({ type: 'error', text: `Error: ${err.message}` });
+      const offlineMsg = "JugaadGPT's AI backend is currently offline. You can continue exploring the website, but AI responses are temporarily unavailable.";
+      const errorText = isOnline === false ? offlineMsg : `Error: ${err.message}`;
+      pushMsg({ type: 'error', text: errorText });
       pendingContext.current = [];
     } finally {
       setLoading(false);
       setTimeout(() => inputRef.current?.focus(), 50);
     }
-  }, [sessionId, voiceLang]);
+  }, [sessionId, voiceLang, isOnline]);
 
   const handleSend = useCallback((e) => {
     if (e) e.preventDefault();
     const text = (interimText && !input ? interimText : input).trim();
     if (!text || loading) return;
+
+    // Pre-flight check
+    if (isOnline === false) {
+      pushMsg({ type: 'user', text });
+      pushMsg({
+        type: 'error',
+        text: "JugaadGPT's AI backend is currently offline. You can continue exploring the website, but AI responses are temporarily unavailable.",
+      });
+      setInput('');
+      return;
+    }
+
     setInput('');
     setInterimText('');
     pendingContext.current = [text];
@@ -610,7 +626,7 @@ export const ChatScreen = () => {
     mirrorToBackend(sessionId, title, voiceLang, 'user', 'text', text);
     
     callAPI(text);
-  }, [input, loading, callAPI, sessionId, voiceLang]);
+  }, [input, loading, isOnline, interimText, callAPI, sessionId, voiceLang]);
 
   const handleClarificationReply = useCallback((answer) => {
     pendingContext.current = [...pendingContext.current, answer];
@@ -719,7 +735,7 @@ export const ChatScreen = () => {
         {/* Messages */}
         <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, paddingBottom: 16 }}>
           {messages.length === 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', flexDirection: 'column', gap: 12, color: 'var(--jg2-mute)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', flexDirection: 'column', gap: 12, color: 'var(--jg2-mute)' }}>
               <div style={{ fontSize: 32 }}>⚙</div>
               <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 13 }}>Describe your problem. Use what you have.</div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', marginTop: 8 }}>
@@ -731,6 +747,28 @@ export const ChatScreen = () => {
                   }}>{s}</button>
                 ))}
               </div>
+              {/* Offline notice in empty chat state */}
+              {isOnline === false && (
+                <div style={{
+                  marginTop: 16, padding: '12px 18px', maxWidth: 480,
+                  background: 'var(--jg2-brick-soft)', border: '1.5px solid var(--jg2-brick)',
+                  fontSize: 12, lineHeight: 1.6, color: 'var(--jg2-brick)',
+                  textAlign: 'center',
+                }}>
+                  <div style={{
+                    fontFamily: 'JetBrains Mono, monospace', fontWeight: 700,
+                    textTransform: 'uppercase', fontSize: 10, letterSpacing: '0.06em',
+                    marginBottom: 6, display: 'flex', alignItems: 'center',
+                    justifyContent: 'center', gap: 6,
+                  }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--jg2-brick)' }} />
+                    AI Backend Offline
+                  </div>
+                  AI responses are temporarily unavailable. The backend has been
+                  taken offline to avoid hosting costs. You can still explore the
+                  rest of the website.
+                </div>
+              )}
             </div>
           )}
 

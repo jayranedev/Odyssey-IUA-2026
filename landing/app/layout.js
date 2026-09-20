@@ -2,6 +2,9 @@ import { Inter, JetBrains_Mono } from 'next/font/google';
 
 import './globals.css';
 import { site } from '../lib/site';
+import { BackendStatusProvider } from '../components/BackendStatusContext';
+import BackendOfflineBanner from '../components/BackendOfflineBanner';
+import BackendOfflineModal from '../components/BackendOfflineModal';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -61,6 +64,13 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
       <body>{children}</body>
+      <body>
+        <BackendStatusProvider>
+          <BackendOfflineBanner />
+          {children}
+          <BackendOfflineModal />
+        </BackendStatusProvider>
+      </body>
     </html>
   );
 }
