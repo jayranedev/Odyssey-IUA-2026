@@ -27,32 +27,33 @@ const structuredData = {
   ],
 };
 
-function TeamCard({ member }) {
-  const socialLinks = [
-    ['github', member.github],
-    ['linkedin', member.linkedin],
-    ['x', member.x],
-  ].filter(([, href]) => href);
-
-  return (
-    <article className="team-card">
-      <div className="team-photo-wrap">
-        <img className="team-photo" src={member.photo} alt={member.name} loading="lazy" />
-      </div>
-      <div className="team-copy">
-        <h3>{member.name}</h3>
-        <p>{member.role}</p>
-      </div>
-      <div className="team-links" aria-label={`${member.name} social links`}>
-        {socialLinks.map(([label, href]) => (
-          <a key={label} href={href} target="_blank" rel="noreferrer" className="team-link">
-            {label === 'github' ? 'GH' : label === 'linkedin' ? 'in' : '𝕏'}
-          </a>
-        ))}
-      </div>
-    </article>
-  );
-}
+  function TeamCard({ member }) {
+    const socialLinks = [
+      ['github', member.github],
+      ['portfolio', member.portfolio],
+      ['linkedin', member.linkedin],
+      ['x', member.x],
+    ].filter(([, href]) => href);
+  
+    return (
+      <article className="team-card">
+        <div className="team-photo-wrap">
+          <img className="team-photo" src={member.photo} alt={member.name} loading="lazy" />
+        </div>
+        <div className="team-copy">
+          <h3>{member.name}</h3>
+          <p>{member.role}</p>
+        </div>
+        <div className="team-links" aria-label={`${member.name} social links`}>
+          {socialLinks.map(([label, href]) => (
+            <a key={label} href={href} target="_blank" rel="noreferrer" className="team-link" aria-label={`${label} link`}>
+              {label === 'github' ? 'GH' : label === 'portfolio' ? 'Web' : label === 'linkedin' ? 'in' : '𝕏'}
+            </a>
+          ))}
+        </div>
+      </article>
+    );
+  }
 
 export default function Page() {
   return (
