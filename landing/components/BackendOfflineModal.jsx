@@ -71,6 +71,7 @@ const BackendOfflineModal = () => {
     >
       <div
         style={{
+          background: 'var(--paper)',
           background: 'var(--card, #FFFFFF)',
           maxWidth: 460,
           width: '100%',

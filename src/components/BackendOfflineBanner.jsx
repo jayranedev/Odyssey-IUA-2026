@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { useBackendStatus } from '../context/BackendStatusContext';
 
 /**
  * BackendOfflineBanner
- * ────────────────────
+ * ====================
  * A persistent, non-sticky notification bar rendered at the very top of the
  * page (above the Header) when the backend is offline.
  *
@@ -110,4 +110,3 @@ const BackendOfflineBanner = () => {
 };
 
 export default BackendOfflineBanner;
-

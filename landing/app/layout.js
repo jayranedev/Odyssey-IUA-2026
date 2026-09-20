@@ -21,8 +21,7 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata = {
   metadataBase: new URL(site.siteUrl),
   title: 'JugaadGPT — AI jugaad solutions for real Indian constraints',
-  description:
-    'Tell JugaadGPT your problem, budget in ₹1, and what\'s lying around — get a buildable fix with a rupee bill-of-materials.',
+  description: 'Tell JugaadGPT your problem, budget in ₹1, and what\'s lying around — get a buildable fix with a rupee bill-of-materials.',
   alternates: {
     canonical: '/',
   },
@@ -30,8 +29,7 @@ export const metadata = {
     type: 'website',
     siteName: 'JugaadGPT',
     title: 'JugaadGPT — AI jugaad solutions for real Indian constraints',
-    description:
-      '₹1-budget builds grounded in real Indian jugaad. Practical, buildable, and constraint-first.',
+    description: '₹1-budget builds grounded in real Indian jugaad. Practical, buildable, and constraint-first.',
     url: site.siteUrl,
     images: [
       {
@@ -45,8 +43,7 @@ export const metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'JugaadGPT — AI jugaad solutions for real Indian constraints',
-    description:
-      '₹1-budget builds grounded in real Indian jugaad. Practical, buildable, and constraint-first.',
+    description: '₹1-budget builds grounded in real Indian jugaad. Practical, buildable, and constraint-first.',
     images: [new URL(site.ogImage, site.siteUrl).toString()],
   },
   icons: {

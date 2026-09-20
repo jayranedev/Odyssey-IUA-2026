@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import React, { useState } from 'react';
 import { useBackendStatus } from '../context/BackendStatusContext';
 import { IconX } from './Icons2';
