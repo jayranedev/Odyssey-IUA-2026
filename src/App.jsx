@@ -3,6 +3,8 @@ import { Routes, Route, useLocation } from 'react-router-dom';
 import Header from './components/Header';
 import BottomNav from './components/BottomNav';
 import LoginModal from './components/LoginModal';
+import BackendOfflineBanner from './components/BackendOfflineBanner';
+import BackendOfflineModal from './components/BackendOfflineModal';
 import Workshop from './pages/Workshop';
 import Blueprints from './pages/Blueprints';
 import Bazaari from './pages/Bazaari';
@@ -15,8 +17,10 @@ function App() {
 
   return (
     <div className="min-h-screen bg-background text-on-background selection:bg-jugaad-yellow selection:text-black">
+      <BackendOfflineBanner />
       {!isChat && <Header />}
       <LoginModal />
+      <BackendOfflineModal />
 
       <Routes>
         <Route path="/" element={<Workshop />} />
@@ -32,3 +36,4 @@ function App() {
 }
 
 export default App;
+

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { API_BASE, authHeaders, broadcastQuota } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useBackendStatus } from '../context/BackendStatusContext';
 import QuotaPill from '../components/QuotaPill';
 import usePageTitle from '../hooks/usePageTitle';
 
@@ -573,6 +574,7 @@ const Chat = () => {
   const [imageFile, setImageFile] = useState(null);
   const [overQuota, setOverQuota] = useState(false); // anon hit daily limit → login required
   const { user, openLogin } = useAuth();
+  const { isOnline } = useBackendStatus();
 
   // Logging in lifts the anonymous limit (25/day account quota kicks in)
   useEffect(() => { if (user) setOverQuota(false); }, [user]);
@@ -798,17 +800,34 @@ const Chat = () => {
       }
       if (buffer.trim()) flush(buffer);
     } catch (err) {
-      pushMsg({ type: 'error', text: `Connection error: ${err.message}` });
+      // Show a meaningful message based on the current backend health status.
+      // If we know the backend is offline, say so explicitly instead of
+      // showing a raw "Connection error: Failed to fetch" message.
+      const offlineMsg = "JugaadGPT's AI backend is currently offline. You can continue exploring the website, but AI responses are temporarily unavailable.";
+      const errorText = isOnline === false ? offlineMsg : `Connection error: ${err.message}`;
+      pushMsg({ type: 'error', text: errorText });
       pendingContext.current = [];
     } finally {
       setLoading(false);
       setTimeout(() => inputRef.current?.focus(), 50);
     }
-  }, [sessionId, respLang]);
+  }, [sessionId, respLang, isOnline]);
 
   const handleSend = useCallback(async () => {
     const text = input.trim();
     if (!text || loading || overQuota) return;
+
+    // Pre-flight check: if backend is confirmed offline, show a friendly
+    // message immediately instead of making a doomed API request.
+    if (isOnline === false) {
+      pushMsg({ type: 'user', text });
+      pushMsg({
+        type: 'error',
+        text: "JugaadGPT's AI backend is currently offline. You can continue exploring the website, but AI responses are temporarily unavailable.",
+      });
+      setInput('');
+      return;
+    }
 
     let imgBase64 = null;
     if (imageFile) {
@@ -829,7 +848,7 @@ const Chat = () => {
     pushMsg(userMsg);
     mirrorToBackend(sessionId, text, respLang, 'user', 'user', { text });
     callAPI(text, imgBase64);
-  }, [input, loading, overQuota, imageFile, callAPI, sessionId, respLang]);
+  }, [input, loading, overQuota, isOnline, imageFile, callAPI, sessionId, respLang]);
 
   const handleClarificationReply = useCallback((answer) => {
     pendingContext.current = [...pendingContext.current, answer];
@@ -989,6 +1008,28 @@ const Chat = () => {
                 </button>
               ))}
             </div>
+            {/* Offline notice in empty chat state */}
+            {isOnline === false && (
+              <div style={{
+                marginTop: 16, padding: '12px 18px', maxWidth: 480,
+                background: 'var(--jg2-brick-soft)', border: '1.5px solid var(--jg2-brick)',
+                fontSize: 12, lineHeight: 1.6, color: 'var(--jg2-brick)',
+                textAlign: 'center',
+              }}>
+                <div style={{
+                  fontFamily: 'JetBrains Mono, monospace', fontWeight: 700,
+                  textTransform: 'uppercase', fontSize: 10, letterSpacing: '0.06em',
+                  marginBottom: 6, display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', gap: 6,
+                }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--jg2-brick)' }} />
+                  AI Backend Offline
+                </div>
+                AI responses are temporarily unavailable. The backend has been
+                taken offline to avoid hosting costs. You can still explore the
+                rest of the website.
+              </div>
+            )}
           </div>
         )}
 

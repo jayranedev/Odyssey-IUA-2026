@@ -2,9 +2,11 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, LogOut, Settings, UserCircle2 } from 'lucide-react';
 import QuotaPill from './QuotaPill';
 import { useAuth } from '../context/AuthContext';
+import { useBackendStatus } from '../context/BackendStatusContext';
 
 const Header = () => {
   const { user, openLogin, signOut, authEnabled } = useAuth();
+  const { isOnline } = useBackendStatus();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
 
@@ -67,6 +69,36 @@ const Header = () => {
         <h1 className="text-2xl font-black text-[#1A4B84] dark:text-[#4A90E2] tracking-widest uppercase font-display">
           JUGAAD GPT
         </h1>
+        {/* Backend status badge — visible only when confirmed offline */}
+        {isOnline === false && (
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              background: 'var(--jg2-brick-soft)',
+              border: '1.5px solid var(--jg2-brick)',
+              padding: '3px 8px',
+              fontSize: 9,
+              fontFamily: 'JetBrains Mono, monospace',
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              letterSpacing: '0.06em',
+              color: 'var(--jg2-brick)',
+            }}
+          >
+            <span
+              style={{
+                width: 5,
+                height: 5,
+                borderRadius: '50%',
+                background: 'var(--jg2-brick)',
+              }}
+              aria-hidden="true"
+            />
+            AI Offline
+          </span>
+        )}
       </div>
       <div className="relative flex items-center gap-3" ref={menuRef}>
         <QuotaPill />
